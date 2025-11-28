@@ -1,0 +1,14 @@
+# Portfolio Architect - Streamlit Web App
+# Core dependencies
+streamlit>=1.28.0
+pandas>=2.0.0
+numpy>=1.24.0
+yfinance>=0.2.31
+matplotlib>=3.7.0
+plotly>=5.18.0
+requests>=2.31.0
+
+# Optional but recommended
+scipy>=1.11.0
+openpyxl>=3.1.0
+
