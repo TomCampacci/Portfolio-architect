@@ -14,8 +14,7 @@ from datetime import datetime, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import io
-import base64
+import requests
 
 # ===================== PAGE CONFIGURATION =====================
 st.set_page_config(
@@ -64,29 +63,6 @@ st.markdown("""
         backdrop-filter: blur(10px);
     }
     
-    .metric-card h3 {
-        color: #e94560;
-        font-size: 0.9rem;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-    }
-    
-    .metric-card .value {
-        color: white;
-        font-size: 1.8rem;
-        font-weight: 700;
-    }
-    
-    .metric-card .change-positive {
-        color: #00d26a;
-        font-size: 0.85rem;
-    }
-    
-    .metric-card .change-negative {
-        color: #ff4757;
-        font-size: 0.85rem;
-    }
-    
     /* Section Headers */
     .section-header {
         color: #e94560;
@@ -97,39 +73,41 @@ st.markdown("""
         border-bottom: 2px solid rgba(233, 69, 96, 0.3);
     }
     
-    /* Success/Error Messages */
-    .success-msg {
-        background: rgba(0, 210, 106, 0.1);
-        border: 1px solid #00d26a;
-        color: #00d26a;
-        padding: 1rem;
+    /* Ticker suggestion box */
+    .ticker-suggestion {
+        background: rgba(233, 69, 96, 0.1);
+        border: 1px solid #e94560;
         border-radius: 8px;
+        padding: 0.5rem 1rem;
+        margin: 0.25rem 0;
+        cursor: pointer;
     }
     
-    .error-msg {
-        background: rgba(255, 71, 87, 0.1);
-        border: 1px solid #ff4757;
-        color: #ff4757;
+    .ticker-suggestion:hover {
+        background: rgba(233, 69, 96, 0.2);
+    }
+    
+    .exchange-badge {
+        background: #3742fa;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        margin-left: 8px;
+    }
+    
+    /* Preview card */
+    .preview-card {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 12px;
         padding: 1rem;
-        border-radius: 8px;
+        margin: 0.5rem 0;
     }
     
     /* Sidebar Styling */
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
-    }
-    
-    /* Input Fields */
-    .stTextInput > div > div > input {
-        background: rgba(255,255,255,0.05);
-        border: 1px solid rgba(255,255,255,0.2);
-        color: white;
-    }
-    
-    .stNumberInput > div > div > input {
-        background: rgba(255,255,255,0.05);
-        border: 1px solid rgba(255,255,255,0.2);
-        color: white;
     }
     
     /* Buttons */
@@ -149,13 +127,69 @@ st.markdown("""
     /* Hide Streamlit branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    
-    /* Dataframe styling */
-    .dataframe {
-        background: rgba(255,255,255,0.05) !important;
-    }
 </style>
 """, unsafe_allow_html=True)
+
+# ===================== POPULAR TICKERS DATABASE =====================
+POPULAR_TICKERS = {
+    # US Tech
+    "AAPL": {"name": "Apple Inc.", "exchange": "NASDAQ"},
+    "MSFT": {"name": "Microsoft Corporation", "exchange": "NASDAQ"},
+    "GOOGL": {"name": "Alphabet Inc.", "exchange": "NASDAQ"},
+    "GOOG": {"name": "Alphabet Inc. Class C", "exchange": "NASDAQ"},
+    "AMZN": {"name": "Amazon.com Inc.", "exchange": "NASDAQ"},
+    "NVDA": {"name": "NVIDIA Corporation", "exchange": "NASDAQ"},
+    "META": {"name": "Meta Platforms Inc.", "exchange": "NASDAQ"},
+    "TSLA": {"name": "Tesla Inc.", "exchange": "NASDAQ"},
+    "NFLX": {"name": "Netflix Inc.", "exchange": "NASDAQ"},
+    "AMD": {"name": "Advanced Micro Devices", "exchange": "NASDAQ"},
+    "INTC": {"name": "Intel Corporation", "exchange": "NASDAQ"},
+    "CRM": {"name": "Salesforce Inc.", "exchange": "NYSE"},
+    "ADBE": {"name": "Adobe Inc.", "exchange": "NASDAQ"},
+    "PYPL": {"name": "PayPal Holdings", "exchange": "NASDAQ"},
+    "PLTR": {"name": "Palantir Technologies", "exchange": "NYSE"},
+    
+    # US Finance
+    "JPM": {"name": "JPMorgan Chase & Co.", "exchange": "NYSE"},
+    "V": {"name": "Visa Inc.", "exchange": "NYSE"},
+    "MA": {"name": "Mastercard Inc.", "exchange": "NYSE"},
+    "BAC": {"name": "Bank of America", "exchange": "NYSE"},
+    "GS": {"name": "Goldman Sachs", "exchange": "NYSE"},
+    "MS": {"name": "Morgan Stanley", "exchange": "NYSE"},
+    "BLK": {"name": "BlackRock Inc.", "exchange": "NYSE"},
+    
+    # US ETFs
+    "SPY": {"name": "SPDR S&P 500 ETF", "exchange": "NYSE"},
+    "QQQ": {"name": "Invesco QQQ Trust", "exchange": "NASDAQ"},
+    "VOO": {"name": "Vanguard S&P 500 ETF", "exchange": "NYSE"},
+    "VTI": {"name": "Vanguard Total Stock Market", "exchange": "NYSE"},
+    "IWM": {"name": "iShares Russell 2000", "exchange": "NYSE"},
+    "GLD": {"name": "SPDR Gold Shares", "exchange": "NYSE"},
+    "SLV": {"name": "iShares Silver Trust", "exchange": "NYSE"},
+    "TLT": {"name": "iShares 20+ Year Treasury", "exchange": "NASDAQ"},
+    
+    # European Stocks
+    "MC.PA": {"name": "LVMH", "exchange": "Euronext Paris"},
+    "OR.PA": {"name": "L'Oréal", "exchange": "Euronext Paris"},
+    "TTE.PA": {"name": "TotalEnergies", "exchange": "Euronext Paris"},
+    "SAN.PA": {"name": "Sanofi", "exchange": "Euronext Paris"},
+    "AIR.PA": {"name": "Airbus", "exchange": "Euronext Paris"},
+    "BNP.PA": {"name": "BNP Paribas", "exchange": "Euronext Paris"},
+    "SAP.DE": {"name": "SAP SE", "exchange": "XETRA"},
+    "SIE.DE": {"name": "Siemens AG", "exchange": "XETRA"},
+    "BMW.DE": {"name": "BMW AG", "exchange": "XETRA"},
+    "ASML.AS": {"name": "ASML Holding", "exchange": "Euronext Amsterdam"},
+    "SHEL.L": {"name": "Shell plc", "exchange": "London"},
+    "AZN.L": {"name": "AstraZeneca", "exchange": "London"},
+    "HSBA.L": {"name": "HSBC Holdings", "exchange": "London"},
+    
+    # European ETFs
+    "IWDA.AS": {"name": "iShares Core MSCI World", "exchange": "Euronext Amsterdam"},
+    "CSPX.L": {"name": "iShares Core S&P 500", "exchange": "London"},
+    "VUSA.L": {"name": "Vanguard S&P 500", "exchange": "London"},
+    "CW8.PA": {"name": "Amundi MSCI World", "exchange": "Euronext Paris"},
+    "EQQQ.L": {"name": "Invesco EQQQ Nasdaq-100", "exchange": "London"},
+}
 
 # ===================== SESSION STATE INITIALIZATION =====================
 if 'portfolio' not in st.session_state:
@@ -170,28 +204,17 @@ if 'benchmarks' not in st.session_state:
 if 'analysis_results' not in st.session_state:
     st.session_state.analysis_results = None
 
-if 'market_data' not in st.session_state:
-    st.session_state.market_data = None
+if 'validated_tickers' not in st.session_state:
+    st.session_state.validated_tickers = {}
 
 # ===================== HELPER FUNCTIONS =====================
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes
+@st.cache_data(ttl=300)
 def fetch_market_data():
     """Fetch current market data for display"""
-    data = {
-        'forex': {},
-        'indexes': {},
-        'commodities': {}
-    }
+    data = {'forex': {}, 'indexes': {}, 'commodities': {}}
     
-    # Forex pairs
-    forex_pairs = {
-        'EUR/USD': 'EURUSD=X',
-        'GBP/USD': 'GBPUSD=X',
-        'USD/JPY': 'JPY=X',
-        'USD/CHF': 'CHF=X'
-    }
-    
+    forex_pairs = {'EUR/USD': 'EURUSD=X', 'GBP/USD': 'GBPUSD=X', 'USD/JPY': 'JPY=X', 'USD/CHF': 'CHF=X'}
     for name, symbol in forex_pairs.items():
         try:
             ticker = yf.Ticker(symbol)
@@ -204,16 +227,7 @@ def fetch_market_data():
         except:
             pass
     
-    # Major Indexes
-    indexes = {
-        'S&P 500': '^GSPC',
-        'Nasdaq': '^IXIC',
-        'Dow Jones': '^DJI',
-        'DAX': '^GDAXI',
-        'CAC 40': '^FCHI',
-        'FTSE 100': '^FTSE'
-    }
-    
+    indexes = {'S&P 500': '^GSPC', 'Nasdaq': '^IXIC', 'Dow Jones': '^DJI', 'DAX': '^GDAXI', 'CAC 40': '^FCHI', 'FTSE 100': '^FTSE'}
     for name, symbol in indexes.items():
         try:
             ticker = yf.Ticker(symbol)
@@ -226,13 +240,7 @@ def fetch_market_data():
         except:
             pass
     
-    # Commodities
-    commodities = {
-        'Gold': 'GC=F',
-        'Silver': 'SI=F',
-        'Oil (WTI)': 'CL=F'
-    }
-    
+    commodities = {'Gold': 'GC=F', 'Silver': 'SI=F', 'Oil (WTI)': 'CL=F'}
     for name, symbol in commodities.items():
         try:
             ticker = yf.Ticker(symbol)
@@ -247,18 +255,98 @@ def fetch_market_data():
     
     return data
 
-@st.cache_data(ttl=60)
-def validate_ticker(symbol):
-    """Validate if a ticker exists on Yahoo Finance"""
+def search_tickers(query):
+    """Search for tickers matching query with exchange info"""
+    if not query or len(query) < 1:
+        return []
+    
+    query_upper = query.upper()
+    results = []
+    
+    # Search in local database first
+    for ticker, info in POPULAR_TICKERS.items():
+        if query_upper in ticker or query_upper in info['name'].upper():
+            results.append({
+                'symbol': ticker,
+                'name': info['name'],
+                'exchange': info['exchange']
+            })
+    
+    # If not enough results, try Yahoo Finance search
+    if len(results) < 5:
+        try:
+            url = "https://query2.finance.yahoo.com/v1/finance/search"
+            params = {"q": query, "quotesCount": 10, "lang": "en-US"}
+            headers = {"User-Agent": "Mozilla/5.0"}
+            resp = requests.get(url, params=params, headers=headers, timeout=3)
+            
+            if resp.status_code == 200:
+                data = resp.json()
+                for quote in data.get('quotes', []):
+                    symbol = quote.get('symbol', '')
+                    if symbol and symbol not in [r['symbol'] for r in results]:
+                        quote_type = quote.get('quoteType', '')
+                        if quote_type in ['EQUITY', 'ETF', 'INDEX']:
+                            results.append({
+                                'symbol': symbol,
+                                'name': quote.get('shortname') or quote.get('longname') or symbol,
+                                'exchange': quote.get('exchDisp') or quote.get('exchange') or 'Unknown'
+                            })
+        except:
+            pass
+    
+    return results[:8]
+
+@st.cache_data(ttl=120)
+def validate_and_get_ticker_info(symbol):
+    """Validate ticker and get detailed info including exchange"""
     if not symbol or not symbol.strip():
-        return False, ""
+        return None
+    
+    symbol = symbol.strip().upper()
+    
+    # Check local database first
+    if symbol in POPULAR_TICKERS:
+        info = POPULAR_TICKERS[symbol]
+        return {
+            'valid': True,
+            'symbol': symbol,
+            'name': info['name'],
+            'exchange': info['exchange'],
+            'price': None
+        }
+    
+    # Try Yahoo Finance
     try:
-        ticker = yf.Ticker(symbol.strip().upper())
+        ticker = yf.Ticker(symbol)
         info = ticker.info
-        name = info.get('longName') or info.get('shortName') or symbol
-        return True, name
+        
+        if info and info.get('regularMarketPrice'):
+            # Determine exchange
+            exchange = info.get('exchange', '')
+            exchange_map = {
+                'NMS': 'NASDAQ', 'NGM': 'NASDAQ', 'NCM': 'NASDAQ',
+                'NYQ': 'NYSE', 'PCX': 'NYSE',
+                'PAR': 'Euronext Paris', 'EPA': 'Euronext Paris',
+                'AMS': 'Euronext Amsterdam', 'EAM': 'Euronext Amsterdam',
+                'GER': 'XETRA', 'FRA': 'Frankfurt',
+                'LSE': 'London', 'LON': 'London',
+                'MIL': 'Milan', 'BIT': 'Milan'
+            }
+            exchange_display = exchange_map.get(exchange, exchange)
+            
+            return {
+                'valid': True,
+                'symbol': symbol,
+                'name': info.get('longName') or info.get('shortName') or symbol,
+                'exchange': exchange_display,
+                'price': info.get('regularMarketPrice'),
+                'currency': info.get('currency', 'USD')
+            }
     except:
-        return False, ""
+        pass
+    
+    return {'valid': False, 'symbol': symbol}
 
 @st.cache_data(ttl=3600)
 def fetch_historical_prices(tickers, years=5):
@@ -283,35 +371,26 @@ def fetch_historical_prices(tickers, years=5):
 
 def compute_portfolio_metrics(prices, weights, capital=10000):
     """Compute portfolio metrics"""
-    # Calculate returns
     returns = prices.pct_change().dropna()
-    
-    # Annualization factor
     ann_factor = 252
     
-    # Portfolio daily returns
     weight_array = np.array(list(weights.values()))
     portfolio_returns = (returns * weight_array).sum(axis=1)
     
-    # Cumulative returns
     cumulative = (1 + portfolio_returns).cumprod()
     portfolio_value = capital * cumulative
     
-    # Metrics
     total_return = (cumulative.iloc[-1] - 1) * 100
     annual_return = ((1 + total_return/100) ** (ann_factor / len(returns)) - 1) * 100
     volatility = portfolio_returns.std() * np.sqrt(ann_factor) * 100
     
-    # Sharpe Ratio (assuming 4% risk-free rate)
     rf = 0.04
     sharpe = (annual_return/100 - rf) / (volatility/100) if volatility > 0 else 0
     
-    # Maximum Drawdown
     running_max = cumulative.cummax()
     drawdowns = (cumulative - running_max) / running_max
     max_drawdown = drawdowns.min() * 100
     
-    # VaR 95%
     var_95 = np.percentile(portfolio_returns, 5) * capital
     
     return {
@@ -325,6 +404,65 @@ def compute_portfolio_metrics(prices, weights, capital=10000):
         'daily_returns': portfolio_returns,
         'cumulative_returns': cumulative
     }
+
+def create_preview_allocation_chart(portfolio_data, capital):
+    """Create live preview allocation chart"""
+    if not portfolio_data:
+        return None
+    
+    labels = [p['ticker'] for p in portfolio_data]
+    weights = [p['weight'] for p in portfolio_data]
+    values = [capital * (w / 100) for w in weights]
+    
+    # Colors palette
+    colors = ['#e94560', '#00d26a', '#3742fa', '#ffa502', '#ff6b6b', 
+              '#1e90ff', '#9b59b6', '#2ecc71', '#e74c3c', '#f39c12']
+    
+    fig = make_subplots(
+        rows=1, cols=2,
+        specs=[[{"type": "pie"}, {"type": "bar"}]],
+        subplot_titles=("Allocation %", "Value ($)")
+    )
+    
+    # Pie chart
+    fig.add_trace(
+        go.Pie(
+            labels=labels,
+            values=weights,
+            hole=0.4,
+            marker=dict(colors=colors[:len(labels)]),
+            textinfo='label+percent',
+            textposition='outside'
+        ),
+        row=1, col=1
+    )
+    
+    # Bar chart for values
+    fig.add_trace(
+        go.Bar(
+            x=labels,
+            y=values,
+            marker_color=colors[:len(labels)],
+            text=[f"${v:,.0f}" for v in values],
+            textposition='outside'
+        ),
+        row=1, col=2
+    )
+    
+    fig.update_layout(
+        title=dict(
+            text="📊 Portfolio Preview",
+            font=dict(size=18, color='white')
+        ),
+        template="plotly_dark",
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='white'),
+        showlegend=False,
+        height=350
+    )
+    
+    return fig
 
 def create_allocation_chart(weights):
     """Create portfolio allocation pie chart"""
@@ -353,7 +491,6 @@ def create_performance_chart(portfolio_value, benchmarks_data=None):
     """Create performance comparison chart"""
     fig = go.Figure()
     
-    # Portfolio line
     fig.add_trace(go.Scatter(
         x=portfolio_value.index,
         y=portfolio_value.values,
@@ -361,7 +498,6 @@ def create_performance_chart(portfolio_value, benchmarks_data=None):
         line=dict(color='#e94560', width=3)
     ))
     
-    # Benchmark lines
     if benchmarks_data is not None:
         colors = ['#00d26a', '#ffa502', '#3742fa', '#ff6b6b', '#1e90ff']
         for i, (name, values) in enumerate(benchmarks_data.items()):
@@ -380,12 +516,7 @@ def create_performance_chart(portfolio_value, benchmarks_data=None):
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color='white'),
-        legend=dict(
-            yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=0.01
-        ),
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
         hovermode='x unified'
     )
     
@@ -427,19 +558,8 @@ def create_volatility_chart(prices, weights):
     
     fig = go.Figure()
     
-    fig.add_trace(go.Bar(
-        name='Volatility (%)',
-        x=tickers,
-        y=vols,
-        marker_color='#e94560'
-    ))
-    
-    fig.add_trace(go.Bar(
-        name='Weight (%)',
-        x=tickers,
-        y=weight_vals,
-        marker_color='#00d26a'
-    ))
+    fig.add_trace(go.Bar(name='Volatility (%)', x=tickers, y=vols, marker_color='#e94560'))
+    fig.add_trace(go.Bar(name='Weight (%)', x=tickers, y=weight_vals, marker_color='#00d26a'))
     
     fig.update_layout(
         title="Asset Volatility vs Weight",
@@ -473,7 +593,6 @@ def create_monte_carlo_chart(simulations, capital):
     """Create Monte Carlo simulation chart"""
     fig = go.Figure()
     
-    # Plot sample paths (limit to 100 for performance)
     n_paths = min(100, simulations.shape[1])
     for i in range(n_paths):
         fig.add_trace(go.Scatter(
@@ -484,7 +603,6 @@ def create_monte_carlo_chart(simulations, capital):
             showlegend=False
         ))
     
-    # Percentiles
     percentiles = [5, 50, 95]
     colors = ['#ff4757', '#00d26a', '#3742fa']
     names = ['5th Percentile (Worst)', 'Median', '95th Percentile (Best)']
@@ -499,7 +617,6 @@ def create_monte_carlo_chart(simulations, capital):
             line=dict(width=2, color=colors[i])
         ))
     
-    # Initial capital line
     fig.add_hline(y=capital, line_dash="dash", line_color="white", 
                   annotation_text=f"Initial: ${capital:,.0f}")
     
@@ -531,20 +648,17 @@ def main():
     with st.sidebar:
         st.header("⚙️ Configuration")
         
-        # Capital and Currency
         capital = st.number_input("💰 Initial Capital ($)", min_value=100, value=10000, step=1000)
         currency = st.selectbox("💱 Currency", ["USD", "EUR", "GBP"])
         
         st.divider()
         
-        # Analysis Settings
         st.subheader("📈 Analysis Settings")
         years = st.slider("Historical Data (Years)", 1, 10, 5)
         mc_simulations = st.slider("Monte Carlo Simulations", 100, 5000, 1000, step=100)
         
         st.divider()
         
-        # Quick Actions
         st.subheader("⚡ Quick Actions")
         if st.button("🔄 Refresh Market Data"):
             st.cache_data.clear()
@@ -560,69 +674,52 @@ def main():
         with st.spinner("Fetching market data..."):
             market_data = fetch_market_data()
         
-        # Indexes
         st.subheader("📊 Major Indexes")
         cols = st.columns(3)
         for i, (name, data) in enumerate(market_data.get('indexes', {}).items()):
             with cols[i % 3]:
-                change_class = "change-positive" if data['change'] >= 0 else "change-negative"
-                change_icon = "📈" if data['change'] >= 0 else "📉"
-                st.metric(
-                    label=name,
-                    value=f"{data['price']:,.2f}",
-                    delta=f"{data['change']:+.2f}%"
-                )
+                st.metric(label=name, value=f"{data['price']:,.2f}", delta=f"{data['change']:+.2f}%")
         
         st.divider()
         
-        # Forex
         st.subheader("💱 Forex Rates")
         cols = st.columns(4)
         for i, (name, data) in enumerate(market_data.get('forex', {}).items()):
             with cols[i % 4]:
-                st.metric(
-                    label=name,
-                    value=f"{data['price']:.4f}",
-                    delta=f"{data['change']:+.2f}%"
-                )
+                st.metric(label=name, value=f"{data['price']:.4f}", delta=f"{data['change']:+.2f}%")
         
         st.divider()
         
-        # Commodities
         st.subheader("🏆 Commodities")
         cols = st.columns(3)
         for i, (name, data) in enumerate(market_data.get('commodities', {}).items()):
             with cols[i % 3]:
-                st.metric(
-                    label=name,
-                    value=f"${data['price']:,.2f}",
-                    delta=f"{data['change']:+.2f}%"
-                )
+                st.metric(label=name, value=f"${data['price']:,.2f}", delta=f"{data['change']:+.2f}%")
     
     # ==================== TAB 2: PORTFOLIO SETUP ====================
     with tab2:
-        st.markdown('<h2 class="section-header">💼 Portfolio Positions</h2>', unsafe_allow_html=True)
+        col_input, col_preview = st.columns([1.2, 1])
         
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            st.info("Enter your portfolio tickers and weights. Weights should sum to 100%.")
+        with col_input:
+            st.markdown('<h2 class="section-header">💼 Portfolio Positions</h2>', unsafe_allow_html=True)
+            st.info("🔍 Start typing a ticker symbol - suggestions will appear automatically!")
             
-            # Portfolio Input
             portfolio_data = []
             
             for i in range(10):
-                cols = st.columns([3, 2, 2])
-                with cols[0]:
-                    ticker = st.text_input(
+                col1, col2, col3 = st.columns([3, 1.5, 2])
+                
+                with col1:
+                    # Ticker input with search
+                    ticker_input = st.text_input(
                         f"Ticker {i+1}",
                         key=f"ticker_{i}",
-                        placeholder="e.g., AAPL, MSFT, NVDA"
+                        placeholder="Type ticker (e.g., AAPL, NVDA, MC.PA)"
                     ).upper().strip()
                 
-                with cols[1]:
+                with col2:
                     weight = st.number_input(
-                        f"Weight % #{i+1}",
+                        f"Weight %",
                         min_value=0.0,
                         max_value=100.0,
                         value=0.0,
@@ -631,19 +728,43 @@ def main():
                         label_visibility="collapsed"
                     )
                 
-                with cols[2]:
-                    if ticker:
-                        is_valid, name = validate_ticker(ticker)
-                        if is_valid:
-                            st.success(f"✓ {name[:20]}...")
+                with col3:
+                    if ticker_input:
+                        # Validate and show info
+                        ticker_info = validate_and_get_ticker_info(ticker_input)
+                        if ticker_info and ticker_info.get('valid'):
+                            exchange = ticker_info.get('exchange', 'Unknown')
+                            name = ticker_info.get('name', '')[:25]
+                            st.success(f"✓ {name}")
+                            st.caption(f"📍 {exchange}")
+                            
+                            if weight > 0:
+                                portfolio_data.append({
+                                    'ticker': ticker_input,
+                                    'weight': weight,
+                                    'name': ticker_info.get('name', ticker_input),
+                                    'exchange': exchange
+                                })
                         else:
-                            st.error("✗ Invalid")
+                            st.error("✗ Invalid ticker")
+                    else:
+                        st.empty()
                 
-                if ticker and weight > 0:
-                    portfolio_data.append({'ticker': ticker, 'weight': weight})
+                # Show suggestions when typing
+                if ticker_input and len(ticker_input) >= 1:
+                    suggestions = search_tickers(ticker_input)
+                    if suggestions and ticker_input not in [s['symbol'] for s in suggestions]:
+                        with st.expander(f"💡 Suggestions for '{ticker_input}'", expanded=False):
+                            for sug in suggestions[:5]:
+                                st.markdown(
+                                    f"**{sug['symbol']}** - {sug['name']} "
+                                    f"<span style='background:#3742fa;color:white;padding:2px 8px;border-radius:4px;font-size:0.75rem;'>{sug['exchange']}</span>",
+                                    unsafe_allow_html=True
+                                )
             
             # Weight Summary
             total_weight = sum([p['weight'] for p in portfolio_data])
+            st.divider()
             if total_weight > 0:
                 if abs(total_weight - 100) < 0.01:
                     st.success(f"✅ Total Weight: {total_weight:.2f}%")
@@ -651,8 +772,8 @@ def main():
                     st.error(f"⚠️ Total Weight: {total_weight:.2f}% (exceeds 100%)")
                 else:
                     st.warning(f"⚠️ Total Weight: {total_weight:.2f}% (under 100%)")
-        
-        with col2:
+            
+            # Benchmarks
             st.markdown('<h2 class="section-header">📈 Benchmarks</h2>', unsafe_allow_html=True)
             
             benchmark_options = {
@@ -674,6 +795,50 @@ def main():
                 format_func=lambda x: benchmark_options.get(x, x)
             )
         
+        # ========== PREVIEW COLUMN ==========
+        with col_preview:
+            st.markdown('<h2 class="section-header">📊 Live Preview</h2>', unsafe_allow_html=True)
+            
+            if portfolio_data:
+                # Show allocation chart
+                fig_preview = create_preview_allocation_chart(portfolio_data, capital)
+                if fig_preview:
+                    st.plotly_chart(fig_preview, use_container_width=True)
+                
+                # Summary table
+                st.markdown("**📋 Portfolio Summary**")
+                summary_df = pd.DataFrame([
+                    {
+                        'Ticker': p['ticker'],
+                        'Name': p['name'][:30],
+                        'Exchange': p['exchange'],
+                        'Weight': f"{p['weight']:.1f}%",
+                        'Value': f"${capital * p['weight'] / 100:,.0f}"
+                    }
+                    for p in portfolio_data
+                ])
+                st.dataframe(summary_df, use_container_width=True, hide_index=True)
+                
+                # Totals
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("💰 Total Value", f"${capital * total_weight / 100:,.0f}")
+                with col2:
+                    remaining = 100 - total_weight
+                    st.metric("📊 Remaining", f"{remaining:.1f}%", delta=f"-{remaining:.1f}%" if remaining > 0 else None)
+            else:
+                st.info("👈 Add tickers and weights to see your portfolio preview!")
+                
+                # Show example
+                st.markdown("**💡 Quick Start Example:**")
+                st.code("""
+AAPL  - 25%
+MSFT  - 25%
+NVDA  - 20%
+GOOGL - 15%
+AMZN  - 15%
+                """)
+        
         st.divider()
         
         # Run Analysis Button
@@ -684,33 +849,25 @@ def main():
                 st.error("Portfolio weights must sum to approximately 100%!")
             else:
                 with st.spinner("Running analysis... This may take a moment."):
-                    # Prepare data
                     tickers = [p['ticker'] for p in portfolio_data]
                     weights = {p['ticker']: p['weight'] / 100 for p in portfolio_data}
                     
-                    # Fetch prices
                     prices = fetch_historical_prices(tickers, years)
                     
                     if prices is not None and not prices.empty:
-                        # Compute metrics
                         metrics = compute_portfolio_metrics(prices, weights, capital)
-                        
-                        # Run Monte Carlo
                         mc_results = run_monte_carlo(metrics, capital, mc_simulations)
                         
-                        # Fetch benchmark data
                         bench_data = {}
                         if selected_benchmarks:
                             bench_prices = fetch_historical_prices(selected_benchmarks, years)
                             if bench_prices is not None:
                                 for bench in selected_benchmarks:
                                     if bench in bench_prices.columns:
-                                        # Normalize to same starting capital
                                         bench_returns = bench_prices[bench].pct_change().dropna()
                                         bench_cumulative = (1 + bench_returns).cumprod()
                                         bench_data[benchmark_options.get(bench, bench)] = capital * bench_cumulative
                         
-                        # Store results
                         st.session_state.analysis_results = {
                             'metrics': metrics,
                             'prices': prices,
@@ -734,9 +891,7 @@ def main():
             
             st.markdown('<h2 class="section-header">📊 Portfolio Metrics</h2>', unsafe_allow_html=True)
             
-            # Key Metrics
             cols = st.columns(6)
-            
             with cols[0]:
                 st.metric("Total Return", f"{metrics['total_return']:.2f}%")
             with cols[1]:
@@ -752,32 +907,21 @@ def main():
             
             st.divider()
             
-            # Charts
             col1, col2 = st.columns(2)
-            
             with col1:
-                # Allocation Chart
                 fig_alloc = create_allocation_chart(results['weights'])
                 st.plotly_chart(fig_alloc, use_container_width=True)
-            
             with col2:
-                # Correlation Heatmap
                 fig_corr = create_correlation_heatmap(results['prices'])
                 st.plotly_chart(fig_corr, use_container_width=True)
             
-            # Performance Chart
             st.markdown('<h2 class="section-header">📈 Performance</h2>', unsafe_allow_html=True)
-            fig_perf = create_performance_chart(
-                metrics['portfolio_value'],
-                results['benchmarks']
-            )
+            fig_perf = create_performance_chart(metrics['portfolio_value'], results['benchmarks'])
             st.plotly_chart(fig_perf, use_container_width=True)
             
-            # Volatility Chart
             fig_vol = create_volatility_chart(results['prices'], results['weights'])
             st.plotly_chart(fig_vol, use_container_width=True)
             
-            # Monte Carlo
             st.markdown('<h2 class="section-header">🎲 Monte Carlo Simulation</h2>', unsafe_allow_html=True)
             
             mc = results['mc_results']
@@ -797,11 +941,9 @@ def main():
             fig_mc = create_monte_carlo_chart(mc, results['capital'])
             st.plotly_chart(fig_mc, use_container_width=True)
             
-            # Download Results
             st.divider()
             st.markdown('<h2 class="section-header">📥 Export Results</h2>', unsafe_allow_html=True)
             
-            # Create summary DataFrame
             summary_df = pd.DataFrame({
                 'Metric': ['Total Return', 'Annual Return', 'Volatility', 'Sharpe Ratio', 'Max Drawdown', 'VaR 95%'],
                 'Value': [
@@ -836,4 +978,3 @@ def render_footer():
 if __name__ == "__main__":
     main()
     render_footer()
-
