@@ -710,34 +710,40 @@ def main():
                         f"Ticker {i+1}",
                         value=st.session_state.tickers[i],
                         key=f"ticker_input_{i}",
-                        placeholder="Type: AAPL, NVDA, MC.PA...",
-                        label_visibility="collapsed"
+                        placeholder="Type: AAPL, LVMH, MC...",
+                        label_visibility="collapsed",
+                        help="Type ticker symbol or company name"
                     ).upper().strip()
                     
-                    # Update session state with typed value
+                    # Update session state
                     st.session_state.tickers[i] = typed_ticker
                     ticker = typed_ticker
                     
-                    # Show clickable suggestions if typing 1-4 chars
-                    if typed_ticker and 1 <= len(typed_ticker) <= 4:
-                        try:
-                            suggestions = search_tickers(typed_ticker)
-                            if suggestions and len(suggestions) > 0:
-                                # Create suggestion buttons in an expander
-                                with st.expander(f"💡 {len(suggestions)} suggestions found - Click to select", expanded=True):
-                                    for j, sug in enumerate(suggestions[:5]):
-                                        suggestion_text = f"**{sug['symbol']}** - {sug['name'][:28]} ({sug['exchange'][:10]})"
-                                        
-                                        if st.button(
-                                            suggestion_text,
-                                            key=f"sug_{i}_{j}_{sug['symbol']}",
-                                            use_container_width=True
-                                        ):
-                                            # Update and rerun
-                                            st.session_state.tickers[i] = sug['symbol']
-                                            st.rerun()
-                        except Exception as e:
-                            st.caption(f"⚠️ Search error: {str(e)[:40]}")
+                    # Show suggestions only if typing (not if already selected full ticker)
+                    if typed_ticker and len(typed_ticker) >= 1 and len(typed_ticker) <= 5:
+                        suggestions = search_tickers(typed_ticker)
+                        
+                        # Only show if we found suggestions AND the current ticker is not already valid
+                        if suggestions and len(suggestions) > 0:
+                            # Don't show suggestions if exact match exists
+                            exact_match = any(s['symbol'] == typed_ticker for s in suggestions)
+                            
+                            if not exact_match or len(suggestions) > 1:
+                                st.caption("💡 Click to select:")
+                                
+                                # Show suggestion buttons
+                                for j, sug in enumerate(suggestions[:5]):
+                                    suggestion_label = f"{sug['symbol']} - {sug['name'][:25]} ({sug['exchange'][:10]})"
+                                    
+                                    if st.button(
+                                        suggestion_label,
+                                        key=f"sug_{i}_{j}_{sug['symbol']}",
+                                        use_container_width=True,
+                                        type="secondary"
+                                    ):
+                                        # Select this ticker and close suggestions
+                                        st.session_state.tickers[i] = sug['symbol']
+                                        st.rerun()
                 
                 with col2:
                     weight = st.number_input(
