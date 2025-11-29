@@ -691,37 +691,44 @@ def main():
             
             portfolio_data = []
             
-            # Popular tickers for quick selection
-            QUICK_TICKERS = [
-                "", "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", 
-                "JPM", "V", "MA", "SPY", "QQQ", "VOO", "GLD",
-                "MC.PA", "OR.PA", "TTE.PA", "SAP.DE", "ASML.AS"
-            ]
-            
             for i in range(10):
                 col1, col2, col3 = st.columns([3, 1, 2])
                 
                 with col1:
-                    # Selectbox with popular tickers + custom input
-                    selected = st.selectbox(
-                        f"Position {i+1}",
-                        options=QUICK_TICKERS,
-                        key=f"ticker_select_{i}",
-                        placeholder="Choose or type ticker...",
+                    # Text input first - user types ticker
+                    typed_ticker = st.text_input(
+                        f"Ticker {i+1}",
+                        key=f"ticker_{i}",
+                        placeholder="Type: AAPL, NVDA, MC.PA...",
                         label_visibility="collapsed"
-                    )
+                    ).upper().strip()
                     
-                    # Also allow custom ticker input
-                    if selected == "":
-                        custom = st.text_input(
-                            f"Custom ticker {i+1}",
-                            key=f"ticker_custom_{i}",
-                            placeholder="Or type: NVDA, BNP.PA...",
-                            label_visibility="collapsed"
-                        ).upper().strip()
-                        ticker = custom
+                    # If user is typing (1-4 chars), show suggestions dropdown
+                    if typed_ticker and 1 <= len(typed_ticker) <= 4:
+                        suggestions = search_tickers(typed_ticker)
+                        if suggestions:
+                            # Build options: first the typed value, then suggestions
+                            options = [typed_ticker] + [
+                                f"{s['symbol']} - {s['name'][:25]} ({s['exchange'][:10]})" 
+                                for s in suggestions if s['symbol'].upper() != typed_ticker
+                            ]
+                            
+                            selected = st.selectbox(
+                                "Suggestions",
+                                options=options,
+                                key=f"suggest_{i}",
+                                label_visibility="collapsed"
+                            )
+                            
+                            # Extract ticker from selection
+                            if " - " in selected:
+                                ticker = selected.split(" - ")[0].strip()
+                            else:
+                                ticker = selected
+                        else:
+                            ticker = typed_ticker
                     else:
-                        ticker = selected
+                        ticker = typed_ticker
                 
                 with col2:
                     weight = st.number_input(
@@ -739,8 +746,8 @@ def main():
                     if ticker:
                         ticker_info = validate_and_get_ticker_info(ticker)
                         if ticker_info and ticker_info.get('valid'):
-                            name = ticker_info.get('name', '')[:20]
-                            exchange = ticker_info.get('exchange', '')[:10]
+                            name = ticker_info.get('name', '')[:18]
+                            exchange = ticker_info.get('exchange', '')[:8]
                             st.success(f"✓ {name}")
                             
                             if weight > 0:
@@ -748,12 +755,12 @@ def main():
                                     'ticker': ticker,
                                     'weight': weight,
                                     'name': ticker_info.get('name', ticker),
-                                    'exchange': exchange
+                                    'exchange': ticker_info.get('exchange', '')
                                 })
                         else:
-                            st.error("✗ Invalid ticker")
+                            st.error("✗ Invalid")
                     else:
-                        st.caption("Enter a ticker")
+                        st.caption("—")
             
             st.divider()
             
