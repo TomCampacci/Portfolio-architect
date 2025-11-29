@@ -429,54 +429,53 @@ def compute_portfolio_metrics(prices, weights, capital=10000):
     }
 
 def create_preview_allocation_chart(portfolio_data, capital):
-    """Create live preview allocation chart"""
+    """Create live preview allocation chart - Pie only for cleaner display"""
     if not portfolio_data:
         return None
     
-    labels = [p['ticker'] for p in portfolio_data]
+    labels = [f"{p['ticker']} (${capital * p['weight'] / 100:,.0f})" for p in portfolio_data]
     weights = [p['weight'] for p in portfolio_data]
-    values = [capital * (w / 100) for w in weights]
     
     colors = ['#e94560', '#00d26a', '#3742fa', '#ffa502', '#ff6b6b', 
               '#1e90ff', '#9b59b6', '#2ecc71', '#e74c3c', '#f39c12']
     
-    fig = make_subplots(
-        rows=1, cols=2,
-        specs=[[{"type": "pie"}, {"type": "bar"}]],
-        subplot_titles=("Allocation %", "Value ($)")
-    )
+    fig = go.Figure(data=[go.Pie(
+        labels=labels,
+        values=weights,
+        hole=0.45,
+        marker=dict(colors=colors[:len(labels)]),
+        textinfo='percent',
+        textposition='inside',
+        textfont=dict(size=14, color='white'),
+        hovertemplate='<b>%{label}</b><br>Weight: %{percent}<extra></extra>'
+    )])
     
-    fig.add_trace(
-        go.Pie(
-            labels=labels,
-            values=weights,
-            hole=0.4,
-            marker=dict(colors=colors[:len(labels)]),
-            textinfo='label+percent',
-            textposition='outside'
-        ),
-        row=1, col=1
-    )
-    
-    fig.add_trace(
-        go.Bar(
-            x=labels,
-            y=values,
-            marker_color=colors[:len(labels)],
-            text=[f"${v:,.0f}" for v in values],
-            textposition='outside'
-        ),
-        row=1, col=2
-    )
+    # Add total in center
+    total_value = sum([capital * p['weight'] / 100 for p in portfolio_data])
     
     fig.update_layout(
-        title=dict(text="📊 Portfolio Preview", font=dict(size=18, color='white')),
+        title=dict(text="Portfolio Allocation", font=dict(size=16, color='white')),
         template="plotly_dark",
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='white'),
-        showlegend=False,
-        height=350
+        font=dict(color='white', size=12),
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.2,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=11)
+        ),
+        height=400,
+        margin=dict(t=50, b=80, l=20, r=20),
+        annotations=[dict(
+            text=f"<b>${total_value:,.0f}</b><br>Total",
+            x=0.5, y=0.5,
+            font=dict(size=16, color='white'),
+            showarrow=False
+        )]
     )
     
     return fig
@@ -701,7 +700,16 @@ def main():
             
             portfolio_data = []
             
-            # Create a cleaner input table
+            # Headers
+            col1, col2, col3 = st.columns([2.5, 1, 2])
+            with col1:
+                st.caption("**Ticker**")
+            with col2:
+                st.caption("**Weight %**")
+            with col3:
+                st.caption("**Status**")
+            
+            # Create input rows
             for i in range(10):
                 col1, col2, col3 = st.columns([2.5, 1, 2])
                 
@@ -709,7 +717,7 @@ def main():
                     ticker = st.text_input(
                         f"Ticker {i+1}",
                         key=f"ticker_{i}",
-                        placeholder=f"Ticker {i+1} (e.g., AAPL)",
+                        placeholder=f"e.g., AAPL, NVDA, MC.PA",
                         label_visibility="collapsed"
                     ).upper().strip()
                 
@@ -729,9 +737,9 @@ def main():
                     if ticker:
                         ticker_info = validate_and_get_ticker_info(ticker)
                         if ticker_info and ticker_info.get('valid'):
-                            name = ticker_info.get('name', '')[:20]
-                            exchange = ticker_info.get('exchange', '')
-                            st.success(f"✓ {name} ({exchange})")
+                            name = ticker_info.get('name', '')[:18]
+                            exchange = ticker_info.get('exchange', '')[:10]
+                            st.success(f"✓ {name}")
                             
                             if weight > 0:
                                 portfolio_data.append({
@@ -744,6 +752,16 @@ def main():
                             st.error("✗ Invalid")
                     else:
                         st.empty()
+                
+                # Show suggestions when typing (1-4 characters)
+                if ticker and 1 <= len(ticker) <= 4:
+                    suggestions = search_tickers(ticker)
+                    # Filter out exact match
+                    suggestions = [s for s in suggestions if s['symbol'].upper() != ticker][:5]
+                    
+                    if suggestions:
+                        suggestion_text = " • ".join([f"**{s['symbol']}** ({s['exchange'][:8]})" for s in suggestions])
+                        st.caption(f"💡 Try: {suggestion_text}")
             
             st.divider()
             
