@@ -293,7 +293,7 @@ def search_tickers(query):
     query_upper = query.upper()
     results = []
     
-    # Search in local database first
+    # Search in local database first - more reliable
     for ticker, info in POPULAR_TICKERS.items():
         if query_upper in ticker or query_upper in info['name'].upper():
             results.append({
@@ -302,13 +302,16 @@ def search_tickers(query):
                 'exchange': info['exchange']
             })
     
+    # Sort by relevance (starts with query first)
+    results.sort(key=lambda x: (not x['symbol'].startswith(query_upper), x['symbol']))
+    
     # If not enough results, try Yahoo Finance search
     if len(results) < 5:
         try:
             url = "https://query2.finance.yahoo.com/v1/finance/search"
             params = {"q": query, "quotesCount": 10, "lang": "en-US"}
-            headers = {"User-Agent": "Mozilla/5.0"}
-            resp = requests.get(url, params=params, headers=headers, timeout=3)
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+            resp = requests.get(url, params=params, headers=headers, timeout=5)
             
             if resp.status_code == 200:
                 data = resp.json()
@@ -316,13 +319,14 @@ def search_tickers(query):
                     symbol = quote.get('symbol', '')
                     if symbol and symbol not in [r['symbol'] for r in results]:
                         quote_type = quote.get('quoteType', '')
-                        if quote_type in ['EQUITY', 'ETF', 'INDEX']:
+                        if quote_type in ['EQUITY', 'ETF', 'INDEX', 'MUTUALFUND']:
                             results.append({
                                 'symbol': symbol,
                                 'name': quote.get('shortname') or quote.get('longname') or symbol,
                                 'exchange': quote.get('exchDisp') or quote.get('exchange') or 'Unknown'
                             })
-        except:
+        except Exception as e:
+            # Silent fail - at least return local results
             pass
     
     return results[:8]
@@ -701,7 +705,7 @@ def main():
                 col1, col2, col3 = st.columns([3, 1, 2])
                 
                 with col1:
-                    # Text input - bound to session state
+                    # Text input for ticker
                     typed_ticker = st.text_input(
                         f"Ticker {i+1}",
                         value=st.session_state.tickers[i],
@@ -712,28 +716,28 @@ def main():
                     
                     # Update session state with typed value
                     st.session_state.tickers[i] = typed_ticker
+                    ticker = typed_ticker
                     
                     # Show clickable suggestions if typing 1-4 chars
                     if typed_ticker and 1 <= len(typed_ticker) <= 4:
-                        suggestions = search_tickers(typed_ticker)
-                        if suggestions:
-                            st.caption("💡 Suggestions:")
-                            
-                            # Create a container for suggestions (max 5)
-                            for j, sug in enumerate(suggestions[:5]):
-                                suggestion_text = f"{sug['symbol']} - {sug['name'][:30]} ({sug['exchange'][:10]})"
-                                
-                                if st.button(
-                                    suggestion_text,
-                                    key=f"sug_{i}_{j}",
-                                    type="secondary",
-                                    use_container_width=True
-                                ):
-                                    # Update session state and rerun
-                                    st.session_state.tickers[i] = sug['symbol']
-                                    st.rerun()
-                    
-                    ticker = st.session_state.tickers[i]
+                        try:
+                            suggestions = search_tickers(typed_ticker)
+                            if suggestions and len(suggestions) > 0:
+                                # Create suggestion buttons in an expander
+                                with st.expander(f"💡 {len(suggestions)} suggestions found - Click to select", expanded=True):
+                                    for j, sug in enumerate(suggestions[:5]):
+                                        suggestion_text = f"**{sug['symbol']}** - {sug['name'][:28]} ({sug['exchange'][:10]})"
+                                        
+                                        if st.button(
+                                            suggestion_text,
+                                            key=f"sug_{i}_{j}_{sug['symbol']}",
+                                            use_container_width=True
+                                        ):
+                                            # Update and rerun
+                                            st.session_state.tickers[i] = sug['symbol']
+                                            st.rerun()
+                        except Exception as e:
+                            st.caption(f"⚠️ Search error: {str(e)[:40]}")
                 
                 with col2:
                     weight = st.number_input(
@@ -750,21 +754,24 @@ def main():
                 
                 with col3:
                     if ticker:
-                        ticker_info = validate_and_get_ticker_info(ticker)
-                        if ticker_info and ticker_info.get('valid'):
-                            name = ticker_info.get('name', '')[:18]
-                            exchange = ticker_info.get('exchange', '')[:8]
-                            st.success(f"✓ {name}")
-                            
-                            if weight > 0:
-                                portfolio_data.append({
-                                    'ticker': ticker,
-                                    'weight': weight,
-                                    'name': ticker_info.get('name', ticker),
-                                    'exchange': ticker_info.get('exchange', '')
-                                })
-                        else:
-                            st.error("✗ Invalid")
+                        try:
+                            ticker_info = validate_and_get_ticker_info(ticker)
+                            if ticker_info and ticker_info.get('valid'):
+                                name = ticker_info.get('name', '')[:18]
+                                exchange = ticker_info.get('exchange', '')[:8]
+                                st.success(f"✓ {name}")
+                                
+                                if weight > 0:
+                                    portfolio_data.append({
+                                        'ticker': ticker,
+                                        'weight': weight,
+                                        'name': ticker_info.get('name', ticker),
+                                        'exchange': ticker_info.get('exchange', '')
+                                    })
+                            else:
+                                st.error("✗ Invalid")
+                        except Exception as e:
+                            st.error(f"✗ Error: {str(e)[:15]}")
                     else:
                         st.caption("—")
             
