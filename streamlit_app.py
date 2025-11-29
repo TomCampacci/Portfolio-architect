@@ -231,6 +231,12 @@ if 'analysis_results' not in st.session_state:
 if 'selected_charts' not in st.session_state:
     st.session_state.selected_charts = list(range(1, 25))  # All selected by default
 
+# Initialize portfolio arrays
+if 'tickers' not in st.session_state:
+    st.session_state.tickers = [''] * 10
+if 'weights' not in st.session_state:
+    st.session_state.weights = [0.0] * 10
+
 # ===================== HELPER FUNCTIONS =====================
 
 @st.cache_data(ttl=300)
@@ -695,52 +701,52 @@ def main():
                 col1, col2, col3 = st.columns([3, 1, 2])
                 
                 with col1:
-                    # Text input first - user types ticker
+                    # Text input - bound to session state
                     typed_ticker = st.text_input(
                         f"Ticker {i+1}",
-                        key=f"ticker_{i}",
+                        value=st.session_state.tickers[i],
+                        key=f"ticker_input_{i}",
                         placeholder="Type: AAPL, NVDA, MC.PA...",
                         label_visibility="collapsed"
                     ).upper().strip()
                     
-                    # If user is typing (1-4 chars), show suggestions dropdown
+                    # Update session state with typed value
+                    st.session_state.tickers[i] = typed_ticker
+                    
+                    # Show clickable suggestions if typing 1-4 chars
                     if typed_ticker and 1 <= len(typed_ticker) <= 4:
                         suggestions = search_tickers(typed_ticker)
                         if suggestions:
-                            # Build options: first the typed value, then suggestions
-                            options = [typed_ticker] + [
-                                f"{s['symbol']} - {s['name'][:25]} ({s['exchange'][:10]})" 
-                                for s in suggestions if s['symbol'].upper() != typed_ticker
-                            ]
+                            st.caption("💡 Suggestions:")
                             
-                            selected = st.selectbox(
-                                "Suggestions",
-                                options=options,
-                                key=f"suggest_{i}",
-                                label_visibility="collapsed"
-                            )
-                            
-                            # Extract ticker from selection
-                            if " - " in selected:
-                                ticker = selected.split(" - ")[0].strip()
-                            else:
-                                ticker = selected
-                        else:
-                            ticker = typed_ticker
-                    else:
-                        ticker = typed_ticker
+                            # Create a container for suggestions (max 5)
+                            for j, sug in enumerate(suggestions[:5]):
+                                suggestion_text = f"{sug['symbol']} - {sug['name'][:30]} ({sug['exchange'][:10]})"
+                                
+                                if st.button(
+                                    suggestion_text,
+                                    key=f"sug_{i}_{j}",
+                                    type="secondary",
+                                    use_container_width=True
+                                ):
+                                    # Update session state and rerun
+                                    st.session_state.tickers[i] = sug['symbol']
+                                    st.rerun()
+                    
+                    ticker = st.session_state.tickers[i]
                 
                 with col2:
                     weight = st.number_input(
                         f"Weight",
                         min_value=0.0, 
                         max_value=100.0,
-                        value=0.0,
+                        value=st.session_state.weights[i],
                         step=5.0,
                         key=f"weight_{i}",
                         label_visibility="collapsed",
                         format="%.0f"
                     )
+                    st.session_state.weights[i] = weight
                 
                 with col3:
                     if ticker:
