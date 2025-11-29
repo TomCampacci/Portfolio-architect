@@ -231,12 +231,11 @@ if 'analysis_results' not in st.session_state:
 if 'selected_charts' not in st.session_state:
     st.session_state.selected_charts = list(range(1, 25))  # All selected by default
 
-# Initialize ticker values in session state
-for i in range(10):
-    if f'ticker_val_{i}' not in st.session_state:
-        st.session_state[f'ticker_val_{i}'] = ''
-    if f'weight_val_{i}' not in st.session_state:
-        st.session_state[f'weight_val_{i}'] = 0.0
+# Initialize portfolio data in session state
+if 'portfolio_tickers' not in st.session_state:
+    st.session_state.portfolio_tickers = [''] * 10
+if 'portfolio_weights' not in st.session_state:
+    st.session_state.portfolio_weights = [0.0] * 10
 
 # ===================== HELPER FUNCTIONS =====================
 
@@ -704,92 +703,107 @@ def main():
         
         with col_input:
             st.markdown('<h2 class="section-header">💼 Portfolio Positions</h2>', unsafe_allow_html=True)
-            st.info("🔍 Type a ticker and click on suggestions to auto-fill!")
+            st.info("🔍 Type a ticker symbol, then select from suggestions or press Enter to validate.")
             
             portfolio_data = []
             
             for i in range(10):
-                # Get current ticker from session state
-                current_ticker = st.session_state.get(f'ticker_val_{i}', '')
-                
-                col1, col2, col3 = st.columns([3, 1.5, 2])
+                st.markdown(f"**Position {i+1}**")
+                col1, col2 = st.columns([3, 1])
                 
                 with col1:
-                    # Text input - use session state value as default
-                    ticker_input = st.text_input(
-                        f"Ticker {i+1}",
-                        value=current_ticker,
-                        key=f"ticker_input_{i}",
-                        placeholder="Type ticker (e.g., AAPL)"
+                    # Get current value from session state
+                    current_val = st.session_state.portfolio_tickers[i]
+                    
+                    # Search input
+                    search_query = st.text_input(
+                        f"Search Ticker",
+                        value=current_val,
+                        key=f"search_{i}",
+                        placeholder="Type: AAPL, NVDA, MC.PA...",
+                        label_visibility="collapsed"
                     ).upper().strip()
                     
-                    # Update session state when user types
-                    if ticker_input != current_ticker:
-                        st.session_state[f'ticker_val_{i}'] = ticker_input
+                    # Get suggestions based on search
+                    if search_query and len(search_query) >= 1:
+                        suggestions = search_tickers(search_query)
+                        
+                        if suggestions:
+                            # Create options list with format: "SYMBOL - Name (Exchange)"
+                            options = [""] + [
+                                f"{s['symbol']} - {s['name'][:30]} ({s['exchange']})" 
+                                for s in suggestions
+                            ]
+                            
+                            # Find current selection index
+                            current_index = 0
+                            for idx, opt in enumerate(options):
+                                if opt.startswith(search_query + " -") or opt.startswith(search_query + " "):
+                                    current_index = idx
+                                    break
+                            
+                            selected = st.selectbox(
+                                f"Select ticker",
+                                options=options,
+                                index=current_index,
+                                key=f"select_{i}",
+                                label_visibility="collapsed"
+                            )
+                            
+                            # Extract ticker from selection
+                            if selected:
+                                ticker = selected.split(" - ")[0].strip()
+                                st.session_state.portfolio_tickers[i] = ticker
+                            else:
+                                st.session_state.portfolio_tickers[i] = search_query
+                        else:
+                            # No suggestions, use the search query directly
+                            st.session_state.portfolio_tickers[i] = search_query
+                    else:
+                        st.session_state.portfolio_tickers[i] = ''
                 
                 with col2:
                     weight = st.number_input(
                         f"Weight %",
-                        min_value=0.0, max_value=100.0, 
-                        value=st.session_state.get(f'weight_val_{i}', 0.0), 
-                        step=1.0,
+                        min_value=0.0, 
+                        max_value=100.0, 
+                        value=st.session_state.portfolio_weights[i],
+                        step=5.0,
                         key=f"weight_{i}",
                         label_visibility="collapsed"
                     )
-                    st.session_state[f'weight_val_{i}'] = weight
+                    st.session_state.portfolio_weights[i] = weight
                 
-                # Use the current input for display
-                display_ticker = ticker_input if ticker_input else current_ticker
+                # Show validation status
+                final_ticker = st.session_state.portfolio_tickers[i]
+                if final_ticker:
+                    ticker_info = validate_and_get_ticker_info(final_ticker)
+                    if ticker_info and ticker_info.get('valid'):
+                        exchange = ticker_info.get('exchange', 'Unknown')
+                        name = ticker_info.get('name', '')[:35]
+                        st.caption(f"✅ **{final_ticker}** - {name} | 📍 {exchange}")
+                        
+                        if weight > 0:
+                            portfolio_data.append({
+                                'ticker': final_ticker,
+                                'weight': weight,
+                                'name': ticker_info.get('name', final_ticker),
+                                'exchange': exchange
+                            })
+                    else:
+                        st.caption(f"❌ **{final_ticker}** - Invalid ticker")
                 
-                with col3:
-                    if display_ticker:
-                        ticker_info = validate_and_get_ticker_info(display_ticker)
-                        if ticker_info and ticker_info.get('valid'):
-                            exchange = ticker_info.get('exchange', 'Unknown')
-                            name = ticker_info.get('name', '')[:22]
-                            st.success(f"✓ {name}")
-                            st.caption(f"📍 {exchange}")
-                            
-                            if weight > 0:
-                                portfolio_data.append({
-                                    'ticker': display_ticker,
-                                    'weight': weight,
-                                    'name': ticker_info.get('name', display_ticker),
-                                    'exchange': exchange
-                                })
-                        else:
-                            st.error("✗ Invalid")
-                
-                # Show clickable suggestions (only when typing, not when already selected)
-                if display_ticker and 1 <= len(display_ticker) <= 4:
-                    suggestions = search_tickers(display_ticker)
-                    matching_suggestions = [s for s in suggestions if s['symbol'].upper() != display_ticker.upper()]
-                    
-                    if matching_suggestions:
-                        st.caption("💡 **Click to select:**")
-                        suggestion_cols = st.columns(min(4, len(matching_suggestions)))
-                        for j, sug in enumerate(matching_suggestions[:4]):
-                            with suggestion_cols[j]:
-                                if st.button(
-                                    f"**{sug['symbol']}**\n📍 {sug['exchange'][:12]}",
-                                    key=f"sug_{i}_{j}",
-                                    use_container_width=True,
-                                    type="secondary"
-                                ):
-                                    # Update session state and rerun
-                                    st.session_state[f'ticker_val_{i}'] = sug['symbol']
-                                    st.rerun()
+                st.markdown("---")
             
             # Weight Summary
             total_weight = sum([p['weight'] for p in portfolio_data])
-            st.divider()
             if total_weight > 0:
                 if abs(total_weight - 100) < 0.01:
                     st.success(f"✅ Total Weight: {total_weight:.2f}%")
                 elif total_weight > 100:
                     st.error(f"⚠️ Total Weight: {total_weight:.2f}% (exceeds 100%)")
                 else:
-                    st.warning(f"⚠️ Total Weight: {total_weight:.2f}% (under 100%)")
+                    st.warning(f"⚠️ Total Weight: {total_weight:.2f}% (need {100-total_weight:.1f}% more)")
             
             # Benchmarks
             st.markdown('<h2 class="section-header">📈 Benchmarks</h2>', unsafe_allow_html=True)
