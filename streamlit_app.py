@@ -45,30 +45,30 @@ CHART_NAMES = {
 }
 
 CHART_DESCRIPTIONS = {
-    1: "📊 Pie chart showing the weight distribution of each asset in your portfolio. Visualize how your capital is allocated across different positions.", 
-    2: "🔗 Heatmap displaying correlation coefficients between all portfolio assets. Identify diversification opportunities and risk concentrations.", 
-    3: "⚠️ Bar chart showing each asset's contribution to total portfolio volatility. Understand which positions drive your portfolio risk.",
-    4: "📈 Line chart comparing your portfolio's cumulative performance against selected benchmark indices over time.", 
-    5: "🏢 Breakdown of portfolio allocation by market sectors (Technology, Healthcare, Finance, etc.). See your sector exposure.", 
-    6: "📉 Risk analysis by sector showing volatility contribution and concentration risk across different market segments.",
-    7: "🎲 Monte Carlo simulation projecting 1000+ possible portfolio paths using normal distribution assumptions. See potential outcomes.", 
-    8: "🎯 Monte Carlo simulation with random walk model. More realistic scenario modeling with market randomness.", 
-    9: "📊 Volatility cone projection showing expected volatility ranges over the next 12 months using normal distribution.",
-    10: "🌀 Volatility forecast using random scenarios. Stress-test your portfolio under various market conditions.", 
-    11: "📉 Drawdown simulation showing potential maximum loss paths under normal market conditions.", 
-    12: "⚡ Drawdown paths with random market shocks. See worst-case scenarios for your portfolio.",
-    13: "🎯 Value at Risk (VaR) at 95% confidence - the maximum expected loss in 95% of cases over a given period.", 
-    14: "💀 Expected Shortfall (CVaR) - average loss when losses exceed VaR. Critical for tail risk assessment.", 
-    15: "⏱️ Historical analysis of drawdown durations. How long does it typically take to recover from losses?", 
-    16: "📐 Calmar Ratio = Annual Return / Max Drawdown. Measures return per unit of downside risk.",
-    17: "⭐ Sharpe Ratio = (Return - Risk Free Rate) / Volatility. The gold standard of risk-adjusted performance.",
-    18: "🏆 Scatter plot comparing your portfolio's risk-return profile against major market indices.", 
-    19: "🔮 Forward-looking analysis of expected excess returns vs benchmarks based on current metrics.", 
-    20: "📊 Portfolio vs Benchmark projection under normal market scenario. Expected relative performance.",
-    21: "🎲 Portfolio vs Benchmark under random market scenarios. Stress-test relative performance.", 
-    22: "📈 Individual sector performance analysis - returns, volatility, and trends for each sector in your portfolio.", 
-    23: "🌡️ Market regime detection using volatility clustering. Identify bull/bear/sideways market phases.",
-    24: "🔄 Sector rotation analysis showing momentum shifts between sectors. Identify trending sectors."
+    1: "Pie chart showing the weight distribution of each asset in your portfolio. Visualize how your capital is allocated across different positions.", 
+    2: "Heatmap displaying correlation coefficients between all portfolio assets. Identify diversification opportunities and risk concentrations.", 
+    3: "Bar chart showing each asset's contribution to total portfolio volatility. Understand which positions drive your portfolio risk.",
+    4: "Line chart comparing your portfolio's cumulative performance against selected benchmark indices over time.", 
+    5: "Breakdown of portfolio allocation by market sectors (Technology, Healthcare, Finance, etc.). See your sector exposure.", 
+    6: "Risk analysis by sector showing volatility contribution and concentration risk across different market segments.",
+    7: "Monte Carlo simulation projecting 1000+ possible portfolio paths using normal distribution assumptions. See potential outcomes.", 
+    8: "Monte Carlo simulation with random walk model. More realistic scenario modeling with market randomness.", 
+    9: "Volatility cone projection showing expected volatility ranges over the next 12 months using normal distribution.",
+    10: "Volatility forecast using random scenarios. Stress-test your portfolio under various market conditions.", 
+    11: "Drawdown simulation showing potential maximum loss paths under normal market conditions.", 
+    12: "Drawdown paths with random market shocks. See worst-case scenarios for your portfolio.",
+    13: "Value at Risk (VaR) at 95% confidence - the maximum expected loss in 95% of cases over a given period.", 
+    14: "Expected Shortfall (CVaR) - average loss when losses exceed VaR. Critical for tail risk assessment.", 
+    15: "Historical analysis of drawdown durations. How long does it typically take to recover from losses?", 
+    16: "Calmar Ratio = Annual Return / Max Drawdown. Measures return per unit of downside risk.",
+    17: "Sharpe Ratio = (Return - Risk Free Rate) / Volatility. The gold standard of risk-adjusted performance.",
+    18: "Scatter plot comparing your portfolio's risk-return profile against major market indices.", 
+    19: "Forward-looking analysis of expected excess returns vs benchmarks based on current metrics.", 
+    20: "Portfolio vs Benchmark projection under normal market scenario. Expected relative performance.",
+    21: "Portfolio vs Benchmark under random market scenarios. Stress-test relative performance.", 
+    22: "Individual sector performance analysis - returns, volatility, and trends for each sector in your portfolio.", 
+    23: "Market regime detection using volatility clustering. Identify bull/bear/sideways market phases.",
+    24: "Sector rotation analysis showing momentum shifts between sectors. Identify trending sectors."
 }
 
 # ===================== CUSTOM CSS =====================
@@ -859,41 +859,40 @@ def main():
         st.markdown('<h2 class="section-header">📈 Select Analysis Charts</h2>', unsafe_allow_html=True)
         st.info("Choose which charts you want to generate. Select categories or individual charts.")
         
-        # Quick select buttons
-        st.markdown("**⚡ Quick Selection:**")
-        col1, col2, col3, col4, col5 = st.columns(5)
-        with col1:
-            select_all = st.button("✅ All", use_container_width=True, key="btn_all")
-        with col2:
-            clear_all = st.button("❌ None", use_container_width=True, key="btn_none")
-        with col3:
-            portfolio_only = st.button("📊 Portfolio", use_container_width=True, key="btn_portfolio")
-        with col4:
-            mc_only = st.button("🎲 Monte Carlo", use_container_width=True, key="btn_mc")
-        with col5:
-            risk_only = st.button("⚠️ Risk", use_container_width=True, key="btn_risk")
+        # Initialize all chart selection states if not exists
+        for i in range(1, 25):
+            if f'chart_{i}' not in st.session_state:
+                st.session_state[f'chart_{i}'] = True  # Default: all selected
         
-        # Handle button clicks - update individual chart states
-        if select_all:
-            for i in range(1, 25):
-                st.session_state[f'chart_sel_{i}'] = True
-            st.rerun()
-        if clear_all:
-            for i in range(1, 25):
-                st.session_state[f'chart_sel_{i}'] = False
-            st.rerun()
-        if portfolio_only:
-            for i in range(1, 25):
-                st.session_state[f'chart_sel_{i}'] = (i in [1, 2, 3, 4, 5, 6])
-            st.rerun()
-        if mc_only:
-            for i in range(1, 25):
-                st.session_state[f'chart_sel_{i}'] = (i in [7, 8, 9, 10, 11, 12])
-            st.rerun()
-        if risk_only:
-            for i in range(1, 25):
-                st.session_state[f'chart_sel_{i}'] = (i in [13, 14, 15, 16, 17])
-            st.rerun()
+        # Quick select buttons
+        st.markdown("**Quick Selection:**")
+        col1, col2, col3, col4, col5 = st.columns(5)
+        
+        with col1:
+            if st.button("Select All", use_container_width=True, key="btn_all"):
+                for i in range(1, 25):
+                    st.session_state[f'chart_{i}'] = True
+                st.rerun()
+        with col2:
+            if st.button("Clear All", use_container_width=True, key="btn_none"):
+                for i in range(1, 25):
+                    st.session_state[f'chart_{i}'] = False
+                st.rerun()
+        with col3:
+            if st.button("Portfolio", use_container_width=True, key="btn_portfolio"):
+                for i in range(1, 25):
+                    st.session_state[f'chart_{i}'] = (i in [1, 2, 3, 4, 5, 6])
+                st.rerun()
+        with col4:
+            if st.button("Monte Carlo", use_container_width=True, key="btn_mc"):
+                for i in range(1, 25):
+                    st.session_state[f'chart_{i}'] = (i in [7, 8, 9, 10, 11, 12])
+                st.rerun()
+        with col5:
+            if st.button("Risk Metrics", use_container_width=True, key="btn_risk"):
+                for i in range(1, 25):
+                    st.session_state[f'chart_{i}'] = (i in [13, 14, 15, 16, 17])
+                st.rerun()
         
         st.divider()
         
@@ -909,19 +908,12 @@ def main():
                     chart_name = CHART_NAMES[chart_num]
                     chart_desc = CHART_DESCRIPTIONS[chart_num]
                     
-                    # Initialize state if not exists
-                    if f'chart_sel_{chart_num}' not in st.session_state:
-                        st.session_state[f'chart_sel_{chart_num}'] = True  # Default: all selected
-                    
+                    # Checkbox - reads directly from session state key
                     is_selected = st.checkbox(
                         f"**{chart_num}. {chart_name}**",
-                        value=st.session_state[f'chart_sel_{chart_num}'],
                         key=f"chart_{chart_num}",
                         help=chart_desc
                     )
-                    
-                    # Update state
-                    st.session_state[f'chart_sel_{chart_num}'] = is_selected
                     
                     # Show description
                     st.caption(chart_desc)
@@ -931,7 +923,7 @@ def main():
             
             st.markdown("")  # Spacing
         
-        # Update session state for other tabs
+        # Store for other tabs
         st.session_state.selected_charts = selected_charts
         
         st.divider()
