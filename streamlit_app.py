@@ -429,12 +429,13 @@ def compute_portfolio_metrics(prices, weights, capital=10000):
     }
 
 def create_preview_allocation_chart(portfolio_data, capital):
-    """Create live preview allocation chart - Pie only for cleaner display"""
+    """Create compact live preview allocation chart"""
     if not portfolio_data:
         return None
     
-    labels = [f"{p['ticker']} (${capital * p['weight'] / 100:,.0f})" for p in portfolio_data]
+    labels = [p['ticker'] for p in portfolio_data]
     weights = [p['weight'] for p in portfolio_data]
+    values = [capital * p['weight'] / 100 for p in portfolio_data]
     
     colors = ['#e94560', '#00d26a', '#3742fa', '#ffa502', '#ff6b6b', 
               '#1e90ff', '#9b59b6', '#2ecc71', '#e74c3c', '#f39c12']
@@ -442,38 +443,28 @@ def create_preview_allocation_chart(portfolio_data, capital):
     fig = go.Figure(data=[go.Pie(
         labels=labels,
         values=weights,
-        hole=0.45,
+        hole=0.5,
         marker=dict(colors=colors[:len(labels)]),
-        textinfo='percent',
-        textposition='inside',
-        textfont=dict(size=14, color='white'),
-        hovertemplate='<b>%{label}</b><br>Weight: %{percent}<extra></extra>'
+        textinfo='label+percent',
+        textposition='outside',
+        textfont=dict(size=10, color='white'),
+        pull=[0.02] * len(labels)
     )])
     
-    # Add total in center
-    total_value = sum([capital * p['weight'] / 100 for p in portfolio_data])
+    total_value = sum(values)
     
     fig.update_layout(
-        title=dict(text="Portfolio Allocation", font=dict(size=16, color='white')),
         template="plotly_dark",
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='white', size=12),
-        showlegend=True,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=-0.2,
-            xanchor="center",
-            x=0.5,
-            font=dict(size=11)
-        ),
-        height=400,
-        margin=dict(t=50, b=80, l=20, r=20),
+        font=dict(color='white', size=10),
+        showlegend=False,
+        height=250,
+        margin=dict(t=10, b=10, l=10, r=10),
         annotations=[dict(
-            text=f"<b>${total_value:,.0f}</b><br>Total",
+            text=f"<b>${total_value:,.0f}</b>",
             x=0.5, y=0.5,
-            font=dict(size=16, color='white'),
+            font=dict(size=14, color='white'),
             showarrow=False
         )]
     )
@@ -700,68 +691,77 @@ def main():
             
             portfolio_data = []
             
-            # Headers
-            col1, col2, col3 = st.columns([2.5, 1, 2])
-            with col1:
-                st.caption("**Ticker**")
-            with col2:
-                st.caption("**Weight %**")
-            with col3:
-                st.caption("**Status**")
-            
-            # Create input rows
+            # Create input rows with suggestions
             for i in range(10):
-                col1, col2, col3 = st.columns([2.5, 1, 2])
+                # Initialize selected ticker state
+                if f"selected_ticker_{i}" not in st.session_state:
+                    st.session_state[f"selected_ticker_{i}"] = ""
+                
+                col1, col2, col3 = st.columns([2.5, 1, 1.5])
                 
                 with col1:
+                    # If a ticker was selected from suggestions, show it
+                    default_val = st.session_state.get(f"selected_ticker_{i}", "")
                     ticker = st.text_input(
                         f"Ticker {i+1}",
-                        key=f"ticker_{i}",
-                        placeholder=f"e.g., AAPL, NVDA, MC.PA",
+                        value=default_val,
+                        key=f"ticker_input_{i}",
+                        placeholder=f"Type ticker...",
                         label_visibility="collapsed"
                     ).upper().strip()
+                    
+                    # Update selected ticker when user types
+                    if ticker != st.session_state[f"selected_ticker_{i}"]:
+                        st.session_state[f"selected_ticker_{i}"] = ticker
                 
                 with col2:
                     weight = st.number_input(
-                        f"Weight {i+1}",
+                        f"W{i+1}",
                         min_value=0.0, 
                         max_value=100.0,
                         value=0.0,
                         step=5.0,
                         key=f"weight_{i}",
                         label_visibility="collapsed",
-                        format="%.1f"
+                        format="%.0f"
                     )
                 
                 with col3:
                     if ticker:
                         ticker_info = validate_and_get_ticker_info(ticker)
                         if ticker_info and ticker_info.get('valid'):
-                            name = ticker_info.get('name', '')[:18]
-                            exchange = ticker_info.get('exchange', '')[:10]
-                            st.success(f"✓ {name}")
+                            exchange = ticker_info.get('exchange', '')[:8]
+                            st.caption(f"✅ {exchange}")
                             
                             if weight > 0:
                                 portfolio_data.append({
                                     'ticker': ticker,
                                     'weight': weight,
                                     'name': ticker_info.get('name', ticker),
-                                    'exchange': exchange
+                                    'exchange': ticker_info.get('exchange', '')
                                 })
                         else:
-                            st.error("✗ Invalid")
-                    else:
-                        st.empty()
+                            st.caption("❌ Invalid")
                 
-                # Show suggestions when typing (1-4 characters)
+                # SUGGESTION PANEL - Show when typing 1-4 characters
                 if ticker and 1 <= len(ticker) <= 4:
                     suggestions = search_tickers(ticker)
-                    # Filter out exact match
-                    suggestions = [s for s in suggestions if s['symbol'].upper() != ticker][:5]
+                    suggestions = [s for s in suggestions if s['symbol'].upper() != ticker][:6]
                     
                     if suggestions:
-                        suggestion_text = " • ".join([f"**{s['symbol']}** ({s['exchange'][:8]})" for s in suggestions])
-                        st.caption(f"💡 Try: {suggestion_text}")
+                        with st.container():
+                            st.caption("💡 **Click to select:**")
+                            cols = st.columns(3)
+                            for j, sug in enumerate(suggestions):
+                                with cols[j % 3]:
+                                    if st.button(
+                                        f"**{sug['symbol']}**\n{sug['exchange'][:12]}",
+                                        key=f"sug_{i}_{j}",
+                                        use_container_width=True,
+                                        type="secondary"
+                                    ):
+                                        st.session_state[f"selected_ticker_{i}"] = sug['symbol']
+                                        st.rerun()
             
             st.divider()
             
