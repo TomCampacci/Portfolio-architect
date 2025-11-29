@@ -709,28 +709,22 @@ def main():
             portfolio_data = []
             
             for i in range(10):
-                # Check if we need to update from a suggestion click
+                # Get current ticker from session state
                 current_ticker = st.session_state.get(f'ticker_val_{i}', '')
                 
                 col1, col2, col3 = st.columns([3, 1.5, 2])
                 
                 with col1:
-                    # Use a callback to update session state
-                    def make_ticker_callback(idx):
-                        def callback():
-                            st.session_state[f'ticker_val_{idx}'] = st.session_state[f'ticker_input_{idx}'].upper().strip()
-                        return callback
-                    
+                    # Text input - use session state value as default
                     ticker_input = st.text_input(
                         f"Ticker {i+1}",
                         value=current_ticker,
                         key=f"ticker_input_{i}",
-                        placeholder="Type ticker (e.g., AAPL)",
-                        on_change=make_ticker_callback(i)
+                        placeholder="Type ticker (e.g., AAPL)"
                     ).upper().strip()
                     
-                    # Sync to session state
-                    if ticker_input:
+                    # Update session state when user types
+                    if ticker_input != current_ticker:
                         st.session_state[f'ticker_val_{i}'] = ticker_input
                 
                 with col2:
@@ -744,8 +738,8 @@ def main():
                     )
                     st.session_state[f'weight_val_{i}'] = weight
                 
-                # Use the session state value for validation
-                display_ticker = st.session_state.get(f'ticker_val_{i}', '')
+                # Use the current input for display
+                display_ticker = ticker_input if ticker_input else current_ticker
                 
                 with col3:
                     if display_ticker:
@@ -766,8 +760,8 @@ def main():
                         else:
                             st.error("✗ Invalid")
                 
-                # Show clickable suggestions
-                if display_ticker and len(display_ticker) >= 1 and len(display_ticker) <= 5:
+                # Show clickable suggestions (only when typing, not when already selected)
+                if display_ticker and 1 <= len(display_ticker) <= 4:
                     suggestions = search_tickers(display_ticker)
                     matching_suggestions = [s for s in suggestions if s['symbol'].upper() != display_ticker.upper()]
                     
@@ -776,17 +770,14 @@ def main():
                         suggestion_cols = st.columns(min(4, len(matching_suggestions)))
                         for j, sug in enumerate(matching_suggestions[:4]):
                             with suggestion_cols[j]:
-                                # Create unique callback for each button
-                                btn_key = f"sug_{i}_{j}_{sug['symbol']}"
                                 if st.button(
                                     f"**{sug['symbol']}**\n📍 {sug['exchange'][:12]}",
-                                    key=btn_key,
+                                    key=f"sug_{i}_{j}",
                                     use_container_width=True,
                                     type="secondary"
                                 ):
-                                    # Update session state with selected ticker
+                                    # Update session state and rerun
                                     st.session_state[f'ticker_val_{i}'] = sug['symbol']
-                                    st.session_state[f'ticker_input_{i}'] = sug['symbol']
                                     st.rerun()
             
             # Weight Summary
