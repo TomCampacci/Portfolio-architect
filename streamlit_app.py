@@ -24,6 +24,53 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# ===================== CHART DEFINITIONS (24 Charts) =====================
+CHART_GROUPS = {
+    "📊 Portfolio & Sector": [1, 2, 3, 4, 5, 6],
+    "🎲 Monte Carlo": [7, 8, 9, 10, 11, 12],
+    "⚠️ Risk Metrics": [13, 14, 15, 16, 17],
+    "📈 Benchmarks": [18, 19, 20, 21],
+    "🔄 Sector & Regime": [22, 23, 24],
+}
+
+CHART_NAMES = {
+    1: "Allocation", 2: "Correlation", 3: "Risk Contrib",
+    4: "vs Benchmarks", 5: "Sector Decomp", 6: "Sector Risk",
+    7: "MC Normal", 8: "MC Random", 9: "Vol Normal",
+    10: "Vol Random", 11: "DD Normal", 12: "DD Random",
+    13: "VaR 95%", 14: "ES (CVaR)", 15: "DD Duration", 16: "Calmar",
+    17: "Sharpe Ratio", 18: "Risk vs Idx", 19: "Fwd Excess", 
+    20: "Port vs B. (N)", 21: "Port vs B. (R)", 22: "Sector Perf", 
+    23: "Regime", 24: "Rotation"
+}
+
+CHART_DESCRIPTIONS = {
+    1: "Weight distribution across portfolio assets", 
+    2: "Correlation matrix between all assets", 
+    3: "Individual asset contribution to total risk",
+    4: "Compare portfolio performance vs benchmarks", 
+    5: "Portfolio breakdown by market sectors", 
+    6: "Risk distribution across different sectors",
+    7: "Monte Carlo simulation with normal distribution", 
+    8: "Monte Carlo simulation with random walk", 
+    9: "Volatility forecast using normal distribution",
+    10: "Volatility forecast using random scenarios", 
+    11: "Maximum drawdown paths (normal dist.)", 
+    12: "Maximum drawdown paths (random dist.)",
+    13: "Value at Risk at 95% confidence", 
+    14: "Expected Shortfall beyond VaR threshold", 
+    15: "Duration of maximum drawdown periods", 
+    16: "Calmar ratio (return/max drawdown)",
+    17: "Sharpe Ratio (risk-adjusted return)",
+    18: "Risk-return comparison with major indexes", 
+    19: "Forward looking excess return analysis", 
+    20: "Portfolio vs benchmark (normal scenario)",
+    21: "Portfolio vs benchmark (random scenario)", 
+    22: "Individual sector performance analysis", 
+    23: "Market regime detection and analysis",
+    24: "Sector rotation patterns over time"
+}
+
 # ===================== CUSTOM CSS =====================
 st.markdown("""
 <style>
@@ -54,15 +101,6 @@ st.markdown("""
         font-size: 1rem;
     }
     
-    /* Cards */
-    .metric-card {
-        background: rgba(255,255,255,0.05);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 12px;
-        padding: 1.2rem;
-        backdrop-filter: blur(10px);
-    }
-    
     /* Section Headers */
     .section-header {
         color: #e94560;
@@ -73,36 +111,31 @@ st.markdown("""
         border-bottom: 2px solid rgba(233, 69, 96, 0.3);
     }
     
-    /* Ticker suggestion box */
-    .ticker-suggestion {
-        background: rgba(233, 69, 96, 0.1);
-        border: 1px solid #e94560;
+    /* Chart category header */
+    .chart-category {
+        background: rgba(233, 69, 96, 0.15);
+        border-left: 4px solid #e94560;
+        padding: 0.5rem 1rem;
+        margin: 1rem 0 0.5rem 0;
+        border-radius: 0 8px 8px 0;
+        font-weight: 600;
+        color: white;
+    }
+    
+    /* Suggestion buttons */
+    .suggestion-btn {
+        background: rgba(55, 66, 250, 0.2);
+        border: 1px solid #3742fa;
         border-radius: 8px;
         padding: 0.5rem 1rem;
-        margin: 0.25rem 0;
+        margin: 0.25rem;
         cursor: pointer;
+        transition: all 0.2s;
     }
     
-    .ticker-suggestion:hover {
-        background: rgba(233, 69, 96, 0.2);
-    }
-    
-    .exchange-badge {
-        background: #3742fa;
-        color: white;
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-size: 0.75rem;
-        margin-left: 8px;
-    }
-    
-    /* Preview card */
-    .preview-card {
-        background: rgba(255,255,255,0.05);
-        border: 1px solid rgba(255,255,255,0.15);
-        border-radius: 12px;
-        padding: 1rem;
-        margin: 0.5rem 0;
+    .suggestion-btn:hover {
+        background: rgba(55, 66, 250, 0.4);
+        transform: translateY(-2px);
     }
     
     /* Sidebar Styling */
@@ -192,20 +225,16 @@ POPULAR_TICKERS = {
 }
 
 # ===================== SESSION STATE INITIALIZATION =====================
-if 'portfolio' not in st.session_state:
-    st.session_state.portfolio = pd.DataFrame({
-        'Ticker': [''] * 10,
-        'Weight (%)': [0.0] * 10
-    })
-
-if 'benchmarks' not in st.session_state:
-    st.session_state.benchmarks = ['^GSPC', '^NDX', '', '', '', '']
-
 if 'analysis_results' not in st.session_state:
     st.session_state.analysis_results = None
 
-if 'validated_tickers' not in st.session_state:
-    st.session_state.validated_tickers = {}
+if 'selected_charts' not in st.session_state:
+    st.session_state.selected_charts = list(range(1, 25))  # All selected by default
+
+# Initialize ticker values in session state
+for i in range(10):
+    if f'ticker_val_{i}' not in st.session_state:
+        st.session_state[f'ticker_val_{i}'] = ''
 
 # ===================== HELPER FUNCTIONS =====================
 
@@ -322,7 +351,6 @@ def validate_and_get_ticker_info(symbol):
         info = ticker.info
         
         if info and info.get('regularMarketPrice'):
-            # Determine exchange
             exchange = info.get('exchange', '')
             exchange_map = {
                 'NMS': 'NASDAQ', 'NGM': 'NASDAQ', 'NCM': 'NASDAQ',
@@ -414,7 +442,6 @@ def create_preview_allocation_chart(portfolio_data, capital):
     weights = [p['weight'] for p in portfolio_data]
     values = [capital * (w / 100) for w in weights]
     
-    # Colors palette
     colors = ['#e94560', '#00d26a', '#3742fa', '#ffa502', '#ff6b6b', 
               '#1e90ff', '#9b59b6', '#2ecc71', '#e74c3c', '#f39c12']
     
@@ -424,7 +451,6 @@ def create_preview_allocation_chart(portfolio_data, capital):
         subplot_titles=("Allocation %", "Value ($)")
     )
     
-    # Pie chart
     fig.add_trace(
         go.Pie(
             labels=labels,
@@ -437,7 +463,6 @@ def create_preview_allocation_chart(portfolio_data, capital):
         row=1, col=1
     )
     
-    # Bar chart for values
     fig.add_trace(
         go.Bar(
             x=labels,
@@ -450,10 +475,7 @@ def create_preview_allocation_chart(portfolio_data, capital):
     )
     
     fig.update_layout(
-        title=dict(
-            text="📊 Portfolio Preview",
-            font=dict(size=18, color='white')
-        ),
+        title=dict(text="📊 Portfolio Preview", font=dict(size=18, color='white')),
         template="plotly_dark",
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
@@ -470,9 +492,7 @@ def create_allocation_chart(weights):
     values = [v * 100 for v in weights.values()]
     
     fig = go.Figure(data=[go.Pie(
-        labels=labels,
-        values=values,
-        hole=0.4,
+        labels=labels, values=values, hole=0.4,
         textinfo='label+percent',
         marker=dict(colors=px.colors.qualitative.Set3)
     )])
@@ -484,7 +504,6 @@ def create_allocation_chart(weights):
         plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color='white')
     )
-    
     return fig
 
 def create_performance_chart(portfolio_value, benchmarks_data=None):
@@ -492,26 +511,21 @@ def create_performance_chart(portfolio_value, benchmarks_data=None):
     fig = go.Figure()
     
     fig.add_trace(go.Scatter(
-        x=portfolio_value.index,
-        y=portfolio_value.values,
-        name='Portfolio',
-        line=dict(color='#e94560', width=3)
+        x=portfolio_value.index, y=portfolio_value.values,
+        name='Portfolio', line=dict(color='#e94560', width=3)
     ))
     
     if benchmarks_data is not None:
         colors = ['#00d26a', '#ffa502', '#3742fa', '#ff6b6b', '#1e90ff']
         for i, (name, values) in enumerate(benchmarks_data.items()):
             fig.add_trace(go.Scatter(
-                x=values.index,
-                y=values.values,
-                name=name,
+                x=values.index, y=values.values, name=name,
                 line=dict(color=colors[i % len(colors)], width=2, dash='dash')
             ))
     
     fig.update_layout(
         title="Portfolio Performance vs Benchmarks",
-        xaxis_title="Date",
-        yaxis_title="Value ($)",
+        xaxis_title="Date", yaxis_title="Value ($)",
         template="plotly_dark",
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
@@ -519,7 +533,6 @@ def create_performance_chart(portfolio_value, benchmarks_data=None):
         legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
         hovermode='x unified'
     )
-    
     return fig
 
 def create_correlation_heatmap(prices):
@@ -527,14 +540,10 @@ def create_correlation_heatmap(prices):
     corr = prices.pct_change().dropna().corr()
     
     fig = go.Figure(data=go.Heatmap(
-        z=corr.values,
-        x=corr.columns,
-        y=corr.columns,
-        colorscale='RdBu',
-        zmid=0,
+        z=corr.values, x=corr.columns, y=corr.columns,
+        colorscale='RdBu', zmid=0,
         text=np.round(corr.values, 2),
-        texttemplate='%{text}',
-        textfont={"size": 10}
+        texttemplate='%{text}', textfont={"size": 10}
     ))
     
     fig.update_layout(
@@ -544,7 +553,6 @@ def create_correlation_heatmap(prices):
         plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color='white')
     )
-    
     return fig
 
 def create_volatility_chart(prices, weights):
@@ -557,21 +565,17 @@ def create_volatility_chart(prices, weights):
     weight_vals = [weights[t] * 100 for t in tickers]
     
     fig = go.Figure()
-    
     fig.add_trace(go.Bar(name='Volatility (%)', x=tickers, y=vols, marker_color='#e94560'))
     fig.add_trace(go.Bar(name='Weight (%)', x=tickers, y=weight_vals, marker_color='#00d26a'))
     
     fig.update_layout(
         title="Asset Volatility vs Weight",
-        xaxis_title="Asset",
-        yaxis_title="Percentage (%)",
-        barmode='group',
-        template="plotly_dark",
+        xaxis_title="Asset", yaxis_title="Percentage (%)",
+        barmode='group', template="plotly_dark",
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color='white')
     )
-    
     return fig
 
 def run_monte_carlo(metrics, capital, n_simulations=1000, n_days=252):
@@ -610,10 +614,8 @@ def create_monte_carlo_chart(simulations, capital):
     for i, p in enumerate(percentiles):
         pct_line = np.percentile(simulations, p, axis=1)
         fig.add_trace(go.Scatter(
-            x=list(range(len(pct_line))),
-            y=pct_line,
-            mode='lines',
-            name=names[i],
+            x=list(range(len(pct_line))), y=pct_line,
+            mode='lines', name=names[i],
             line=dict(width=2, color=colors[i])
         ))
     
@@ -622,15 +624,13 @@ def create_monte_carlo_chart(simulations, capital):
     
     fig.update_layout(
         title=f"Monte Carlo Simulation (1 Year, {simulations.shape[1]} paths)",
-        xaxis_title="Trading Days",
-        yaxis_title="Portfolio Value ($)",
+        xaxis_title="Trading Days", yaxis_title="Portfolio Value ($)",
         template="plotly_dark",
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color='white'),
         showlegend=True
     )
-    
     return fig
 
 # ===================== MAIN APPLICATION =====================
@@ -665,7 +665,7 @@ def main():
             st.rerun()
     
     # Main Content - Tabs
-    tab1, tab2, tab3 = st.tabs(["📊 Market Overview", "💼 Portfolio Setup", "📈 Analysis Results"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Market Overview", "💼 Portfolio Setup", "📈 Chart Selection", "📉 Analysis Results"])
     
     # ==================== TAB 1: MARKET OVERVIEW ====================
     with tab1:
@@ -702,7 +702,7 @@ def main():
         
         with col_input:
             st.markdown('<h2 class="section-header">💼 Portfolio Positions</h2>', unsafe_allow_html=True)
-            st.info("🔍 Start typing a ticker symbol - suggestions will appear automatically!")
+            st.info("🔍 Type a ticker and click on suggestions to auto-fill!")
             
             portfolio_data = []
             
@@ -710,31 +710,30 @@ def main():
                 col1, col2, col3 = st.columns([3, 1.5, 2])
                 
                 with col1:
-                    # Ticker input with search
                     ticker_input = st.text_input(
                         f"Ticker {i+1}",
+                        value=st.session_state.get(f'ticker_val_{i}', ''),
                         key=f"ticker_{i}",
-                        placeholder="Type ticker (e.g., AAPL, NVDA, MC.PA)"
+                        placeholder="Type ticker (e.g., AAPL)"
                     ).upper().strip()
+                    
+                    # Update session state
+                    st.session_state[f'ticker_val_{i}'] = ticker_input
                 
                 with col2:
                     weight = st.number_input(
                         f"Weight %",
-                        min_value=0.0,
-                        max_value=100.0,
-                        value=0.0,
-                        step=1.0,
+                        min_value=0.0, max_value=100.0, value=0.0, step=1.0,
                         key=f"weight_{i}",
                         label_visibility="collapsed"
                     )
                 
                 with col3:
                     if ticker_input:
-                        # Validate and show info
                         ticker_info = validate_and_get_ticker_info(ticker_input)
                         if ticker_info and ticker_info.get('valid'):
                             exchange = ticker_info.get('exchange', 'Unknown')
-                            name = ticker_info.get('name', '')[:25]
+                            name = ticker_info.get('name', '')[:22]
                             st.success(f"✓ {name}")
                             st.caption(f"📍 {exchange}")
                             
@@ -746,21 +745,25 @@ def main():
                                     'exchange': exchange
                                 })
                         else:
-                            st.error("✗ Invalid ticker")
-                    else:
-                        st.empty()
+                            st.error("✗ Invalid")
                 
-                # Show suggestions when typing
+                # Show clickable suggestions
                 if ticker_input and len(ticker_input) >= 1:
                     suggestions = search_tickers(ticker_input)
-                    if suggestions and ticker_input not in [s['symbol'] for s in suggestions]:
-                        with st.expander(f"💡 Suggestions for '{ticker_input}'", expanded=False):
-                            for sug in suggestions[:5]:
-                                st.markdown(
-                                    f"**{sug['symbol']}** - {sug['name']} "
-                                    f"<span style='background:#3742fa;color:white;padding:2px 8px;border-radius:4px;font-size:0.75rem;'>{sug['exchange']}</span>",
-                                    unsafe_allow_html=True
-                                )
+                    matching_suggestions = [s for s in suggestions if s['symbol'] != ticker_input]
+                    
+                    if matching_suggestions:
+                        st.markdown("**💡 Click to select:**")
+                        suggestion_cols = st.columns(min(4, len(matching_suggestions)))
+                        for j, sug in enumerate(matching_suggestions[:4]):
+                            with suggestion_cols[j]:
+                                if st.button(
+                                    f"{sug['symbol']}\n{sug['exchange'][:10]}",
+                                    key=f"sug_{i}_{j}",
+                                    use_container_width=True
+                                ):
+                                    st.session_state[f'ticker_val_{i}'] = sug['symbol']
+                                    st.rerun()
             
             # Weight Summary
             total_weight = sum([p['weight'] for p in portfolio_data])
@@ -777,15 +780,9 @@ def main():
             st.markdown('<h2 class="section-header">📈 Benchmarks</h2>', unsafe_allow_html=True)
             
             benchmark_options = {
-                '^GSPC': 'S&P 500',
-                '^NDX': 'Nasdaq 100',
-                '^DJI': 'Dow Jones',
-                '^GDAXI': 'DAX',
-                '^FCHI': 'CAC 40',
-                '^STOXX50E': 'Euro Stoxx 50',
-                '^FTSE': 'FTSE 100',
-                '^N225': 'Nikkei 225',
-                'GC=F': 'Gold',
+                '^GSPC': 'S&P 500', '^NDX': 'Nasdaq 100', '^DJI': 'Dow Jones',
+                '^GDAXI': 'DAX', '^FCHI': 'CAC 40', '^STOXX50E': 'Euro Stoxx 50',
+                '^FTSE': 'FTSE 100', '^N225': 'Nikkei 225', 'GC=F': 'Gold',
             }
             
             selected_benchmarks = st.multiselect(
@@ -800,17 +797,15 @@ def main():
             st.markdown('<h2 class="section-header">📊 Live Preview</h2>', unsafe_allow_html=True)
             
             if portfolio_data:
-                # Show allocation chart
                 fig_preview = create_preview_allocation_chart(portfolio_data, capital)
                 if fig_preview:
                     st.plotly_chart(fig_preview, use_container_width=True)
                 
-                # Summary table
                 st.markdown("**📋 Portfolio Summary**")
                 summary_df = pd.DataFrame([
                     {
                         'Ticker': p['ticker'],
-                        'Name': p['name'][:30],
+                        'Name': p['name'][:25],
                         'Exchange': p['exchange'],
                         'Weight': f"{p['weight']:.1f}%",
                         'Value': f"${capital * p['weight'] / 100:,.0f}"
@@ -819,36 +814,96 @@ def main():
                 ])
                 st.dataframe(summary_df, use_container_width=True, hide_index=True)
                 
-                # Totals
                 col1, col2 = st.columns(2)
                 with col1:
                     st.metric("💰 Total Value", f"${capital * total_weight / 100:,.0f}")
                 with col2:
                     remaining = 100 - total_weight
-                    st.metric("📊 Remaining", f"{remaining:.1f}%", delta=f"-{remaining:.1f}%" if remaining > 0 else None)
+                    st.metric("📊 Remaining", f"{remaining:.1f}%")
             else:
                 st.info("👈 Add tickers and weights to see your portfolio preview!")
-                
-                # Show example
                 st.markdown("**💡 Quick Start Example:**")
-                st.code("""
-AAPL  - 25%
-MSFT  - 25%
-NVDA  - 20%
-GOOGL - 15%
-AMZN  - 15%
-                """)
+                st.code("AAPL - 25%\nMSFT - 25%\nNVDA - 20%\nGOOGL - 15%\nAMZN - 15%")
+    
+    # ==================== TAB 3: CHART SELECTION ====================
+    with tab3:
+        st.markdown('<h2 class="section-header">📈 Select Analysis Charts</h2>', unsafe_allow_html=True)
+        st.info("Choose which charts you want to generate. Select categories or individual charts.")
+        
+        # Quick select buttons
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            if st.button("✅ Select All", use_container_width=True):
+                st.session_state.selected_charts = list(range(1, 25))
+                st.rerun()
+        with col2:
+            if st.button("❌ Clear All", use_container_width=True):
+                st.session_state.selected_charts = []
+                st.rerun()
+        with col3:
+            if st.button("📊 Portfolio Only", use_container_width=True):
+                st.session_state.selected_charts = [1, 2, 3, 4, 5, 6]
+                st.rerun()
+        with col4:
+            if st.button("🎲 Monte Carlo Only", use_container_width=True):
+                st.session_state.selected_charts = [7, 8, 9, 10, 11, 12]
+                st.rerun()
+        
+        st.divider()
+        
+        # Chart selection by category
+        selected_charts = []
+        
+        for category, chart_nums in CHART_GROUPS.items():
+            st.markdown(f'<div class="chart-category">{category}</div>', unsafe_allow_html=True)
+            
+            # Category checkbox
+            category_key = category.replace(" ", "_").replace("&", "and")
+            all_selected = all(num in st.session_state.selected_charts for num in chart_nums)
+            
+            cols = st.columns(3)
+            for idx, chart_num in enumerate(chart_nums):
+                with cols[idx % 3]:
+                    chart_name = CHART_NAMES[chart_num]
+                    chart_desc = CHART_DESCRIPTIONS[chart_num]
+                    
+                    is_selected = st.checkbox(
+                        f"**{chart_num}. {chart_name}**",
+                        value=chart_num in st.session_state.selected_charts,
+                        key=f"chart_{chart_num}",
+                        help=chart_desc
+                    )
+                    st.caption(chart_desc[:50] + "...")
+                    
+                    if is_selected:
+                        selected_charts.append(chart_num)
+        
+        # Update session state
+        st.session_state.selected_charts = selected_charts
+        
+        st.divider()
+        
+        # Summary
+        st.markdown(f"### 📊 Selected: **{len(selected_charts)}** / 24 charts")
+        
+        if selected_charts:
+            selected_names = [f"{n}. {CHART_NAMES[n]}" for n in sorted(selected_charts)]
+            st.success(f"Charts to generate: {', '.join(selected_names)}")
+        else:
+            st.warning("⚠️ No charts selected. Please select at least one chart.")
         
         st.divider()
         
         # Run Analysis Button
-        if st.button("🚀 Run Portfolio Analysis", type="primary", use_container_width=True):
+        if st.button("🚀 Run Portfolio Analysis", type="primary", use_container_width=True, key="run_analysis"):
             if not portfolio_data:
-                st.error("Please add at least one position to your portfolio!")
+                st.error("Please add at least one position in the Portfolio Setup tab!")
+            elif not selected_charts:
+                st.error("Please select at least one chart to generate!")
             elif abs(total_weight - 100) > 1:
                 st.error("Portfolio weights must sum to approximately 100%!")
             else:
-                with st.spinner("Running analysis... This may take a moment."):
+                with st.spinner(f"Running analysis for {len(selected_charts)} charts... This may take a moment."):
                     tickers = [p['ticker'] for p in portfolio_data]
                     weights = {p['ticker']: p['weight'] / 100 for p in portfolio_data}
                     
@@ -874,20 +929,22 @@ AMZN  - 15%
                             'weights': weights,
                             'mc_results': mc_results,
                             'benchmarks': bench_data,
-                            'capital': capital
+                            'capital': capital,
+                            'selected_charts': selected_charts
                         }
                         
-                        st.success("✅ Analysis complete! Check the Results tab.")
+                        st.success(f"✅ Analysis complete! {len(selected_charts)} charts generated. Check the Results tab.")
                     else:
                         st.error("Could not fetch price data. Please check your tickers.")
     
-    # ==================== TAB 3: ANALYSIS RESULTS ====================
-    with tab3:
+    # ==================== TAB 4: ANALYSIS RESULTS ====================
+    with tab4:
         if st.session_state.analysis_results is None:
-            st.info("👆 Set up your portfolio in the Portfolio Setup tab and run the analysis to see results.")
+            st.info("👆 Set up your portfolio, select charts, and run the analysis to see results.")
         else:
             results = st.session_state.analysis_results
             metrics = results['metrics']
+            selected = results.get('selected_charts', list(range(1, 25)))
             
             st.markdown('<h2 class="section-header">📊 Portfolio Metrics</h2>', unsafe_allow_html=True)
             
@@ -907,39 +964,70 @@ AMZN  - 15%
             
             st.divider()
             
-            col1, col2 = st.columns(2)
-            with col1:
-                fig_alloc = create_allocation_chart(results['weights'])
-                st.plotly_chart(fig_alloc, use_container_width=True)
-            with col2:
-                fig_corr = create_correlation_heatmap(results['prices'])
-                st.plotly_chart(fig_corr, use_container_width=True)
+            # Show charts based on selection
+            if 1 in selected or 2 in selected:
+                col1, col2 = st.columns(2)
+                if 1 in selected:
+                    with col1:
+                        st.markdown("### 1. Portfolio Allocation")
+                        fig_alloc = create_allocation_chart(results['weights'])
+                        st.plotly_chart(fig_alloc, use_container_width=True)
+                if 2 in selected:
+                    with col2:
+                        st.markdown("### 2. Correlation Matrix")
+                        fig_corr = create_correlation_heatmap(results['prices'])
+                        st.plotly_chart(fig_corr, use_container_width=True)
             
-            st.markdown('<h2 class="section-header">📈 Performance</h2>', unsafe_allow_html=True)
-            fig_perf = create_performance_chart(metrics['portfolio_value'], results['benchmarks'])
-            st.plotly_chart(fig_perf, use_container_width=True)
+            if 4 in selected:
+                st.markdown("### 4. Performance vs Benchmarks")
+                fig_perf = create_performance_chart(metrics['portfolio_value'], results['benchmarks'])
+                st.plotly_chart(fig_perf, use_container_width=True)
             
-            fig_vol = create_volatility_chart(results['prices'], results['weights'])
-            st.plotly_chart(fig_vol, use_container_width=True)
+            if 3 in selected:
+                st.markdown("### 3. Risk Contribution (Volatility)")
+                fig_vol = create_volatility_chart(results['prices'], results['weights'])
+                st.plotly_chart(fig_vol, use_container_width=True)
             
-            st.markdown('<h2 class="section-header">🎲 Monte Carlo Simulation</h2>', unsafe_allow_html=True)
+            # Monte Carlo charts
+            mc_charts = [c for c in [7, 8, 9, 10, 11, 12] if c in selected]
+            if mc_charts:
+                st.markdown('<h2 class="section-header">🎲 Monte Carlo Simulation</h2>', unsafe_allow_html=True)
+                
+                mc = results['mc_results']
+                final_values = mc[-1, :]
+                
+                cols = st.columns(4)
+                with cols[0]:
+                    st.metric("5th Percentile", f"${np.percentile(final_values, 5):,.0f}")
+                with cols[1]:
+                    st.metric("Median", f"${np.percentile(final_values, 50):,.0f}")
+                with cols[2]:
+                    st.metric("95th Percentile", f"${np.percentile(final_values, 95):,.0f}")
+                with cols[3]:
+                    prob_profit = (final_values > results['capital']).mean() * 100
+                    st.metric("Probability of Profit", f"{prob_profit:.1f}%")
+                
+                fig_mc = create_monte_carlo_chart(mc, results['capital'])
+                st.plotly_chart(fig_mc, use_container_width=True)
             
-            mc = results['mc_results']
-            final_values = mc[-1, :]
-            
-            cols = st.columns(4)
-            with cols[0]:
-                st.metric("5th Percentile", f"${np.percentile(final_values, 5):,.0f}")
-            with cols[1]:
-                st.metric("Median", f"${np.percentile(final_values, 50):,.0f}")
-            with cols[2]:
-                st.metric("95th Percentile", f"${np.percentile(final_values, 95):,.0f}")
-            with cols[3]:
-                prob_profit = (final_values > results['capital']).mean() * 100
-                st.metric("Probability of Profit", f"{prob_profit:.1f}%")
-            
-            fig_mc = create_monte_carlo_chart(mc, results['capital'])
-            st.plotly_chart(fig_mc, use_container_width=True)
+            # Risk metrics
+            risk_charts = [c for c in [13, 14, 15, 16, 17] if c in selected]
+            if risk_charts:
+                st.markdown('<h2 class="section-header">⚠️ Risk Metrics</h2>', unsafe_allow_html=True)
+                
+                cols = st.columns(len(risk_charts))
+                for i, chart_num in enumerate(risk_charts):
+                    with cols[i]:
+                        if chart_num == 13:
+                            st.metric("VaR 95%", f"${metrics['var_95']:,.2f}")
+                        elif chart_num == 14:
+                            es = np.percentile(metrics['daily_returns'], 5) * results['capital'] * 1.5
+                            st.metric("Expected Shortfall", f"${es:,.2f}")
+                        elif chart_num == 16:
+                            calmar = metrics['annual_return'] / abs(metrics['max_drawdown']) if metrics['max_drawdown'] != 0 else 0
+                            st.metric("Calmar Ratio", f"{calmar:.2f}")
+                        elif chart_num == 17:
+                            st.metric("Sharpe Ratio", f"{metrics['sharpe']:.2f}")
             
             st.divider()
             st.markdown('<h2 class="section-header">📥 Export Results</h2>', unsafe_allow_html=True)
