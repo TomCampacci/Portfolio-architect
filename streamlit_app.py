@@ -691,32 +691,41 @@ def main():
             
             portfolio_data = []
             
-            # Create input rows with suggestions
+            # Popular tickers for quick selection
+            QUICK_TICKERS = [
+                "", "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", 
+                "JPM", "V", "MA", "SPY", "QQQ", "VOO", "GLD",
+                "MC.PA", "OR.PA", "TTE.PA", "SAP.DE", "ASML.AS"
+            ]
+            
             for i in range(10):
-                # Initialize selected ticker state
-                if f"selected_ticker_{i}" not in st.session_state:
-                    st.session_state[f"selected_ticker_{i}"] = ""
-                
-                col1, col2, col3 = st.columns([2.5, 1, 1.5])
+                col1, col2, col3 = st.columns([3, 1, 2])
                 
                 with col1:
-                    # If a ticker was selected from suggestions, show it
-                    default_val = st.session_state.get(f"selected_ticker_{i}", "")
-                    ticker = st.text_input(
-                        f"Ticker {i+1}",
-                        value=default_val,
-                        key=f"ticker_input_{i}",
-                        placeholder=f"Type ticker...",
+                    # Selectbox with popular tickers + custom input
+                    selected = st.selectbox(
+                        f"Position {i+1}",
+                        options=QUICK_TICKERS,
+                        key=f"ticker_select_{i}",
+                        placeholder="Choose or type ticker...",
                         label_visibility="collapsed"
-                    ).upper().strip()
+                    )
                     
-                    # Update selected ticker when user types
-                    if ticker != st.session_state[f"selected_ticker_{i}"]:
-                        st.session_state[f"selected_ticker_{i}"] = ticker
+                    # Also allow custom ticker input
+                    if selected == "":
+                        custom = st.text_input(
+                            f"Custom ticker {i+1}",
+                            key=f"ticker_custom_{i}",
+                            placeholder="Or type: NVDA, BNP.PA...",
+                            label_visibility="collapsed"
+                        ).upper().strip()
+                        ticker = custom
+                    else:
+                        ticker = selected
                 
                 with col2:
                     weight = st.number_input(
-                        f"W{i+1}",
+                        f"Weight",
                         min_value=0.0, 
                         max_value=100.0,
                         value=0.0,
@@ -730,38 +739,21 @@ def main():
                     if ticker:
                         ticker_info = validate_and_get_ticker_info(ticker)
                         if ticker_info and ticker_info.get('valid'):
-                            exchange = ticker_info.get('exchange', '')[:8]
-                            st.caption(f"✅ {exchange}")
+                            name = ticker_info.get('name', '')[:20]
+                            exchange = ticker_info.get('exchange', '')[:10]
+                            st.success(f"✓ {name}")
                             
                             if weight > 0:
                                 portfolio_data.append({
                                     'ticker': ticker,
                                     'weight': weight,
                                     'name': ticker_info.get('name', ticker),
-                                    'exchange': ticker_info.get('exchange', '')
+                                    'exchange': exchange
                                 })
                         else:
-                            st.caption("❌ Invalid")
-                
-                # SUGGESTION PANEL - Show when typing 1-4 characters
-                if ticker and 1 <= len(ticker) <= 4:
-                    suggestions = search_tickers(ticker)
-                    suggestions = [s for s in suggestions if s['symbol'].upper() != ticker][:6]
-                    
-                    if suggestions:
-                        with st.container():
-                            st.caption("💡 **Click to select:**")
-                            cols = st.columns(3)
-                            for j, sug in enumerate(suggestions):
-                                with cols[j % 3]:
-                                    if st.button(
-                                        f"**{sug['symbol']}**\n{sug['exchange'][:12]}",
-                                        key=f"sug_{i}_{j}",
-                                        use_container_width=True,
-                                        type="secondary"
-                                    ):
-                                        st.session_state[f"selected_ticker_{i}"] = sug['symbol']
-                                        st.rerun()
+                            st.error("✗ Invalid ticker")
+                    else:
+                        st.caption("Enter a ticker")
             
             st.divider()
             
