@@ -231,12 +231,6 @@ if 'analysis_results' not in st.session_state:
 if 'selected_charts' not in st.session_state:
     st.session_state.selected_charts = list(range(1, 25))  # All selected by default
 
-# Initialize portfolio arrays
-if 'tickers' not in st.session_state:
-    st.session_state.tickers = [''] * 10
-if 'weights' not in st.session_state:
-    st.session_state.weights = [0.0] * 10
-
 # ===================== HELPER FUNCTIONS =====================
 
 @st.cache_data(ttl=300)
@@ -705,58 +699,63 @@ def main():
                 col1, col2, col3 = st.columns([3, 1, 2])
                 
                 with col1:
-                    # Text input for ticker
-                    typed_ticker = st.text_input(
+                    # Initialize ticker in session state if not exists
+                    if f"ticker_{i}" not in st.session_state:
+                        st.session_state[f"ticker_{i}"] = ""
+                    
+                    # Text input bound ONLY to session state key (no value parameter)
+                    st.text_input(
                         f"Ticker {i+1}",
-                        value=st.session_state.tickers[i],
-                        key=f"ticker_input_{i}",
+                        key=f"ticker_{i}",
                         placeholder="Type: AAPL, LVMH, MC...",
                         label_visibility="collapsed",
                         help="Type ticker symbol or company name"
-                    ).upper().strip()
+                    )
                     
-                    # Update session state
-                    st.session_state.tickers[i] = typed_ticker
-                    ticker = typed_ticker
+                    # Get current value from session state
+                    ticker = st.session_state[f"ticker_{i}"].upper().strip()
                     
-                    # Show suggestions only if typing (not if already selected full ticker)
-                    if typed_ticker and len(typed_ticker) >= 1 and len(typed_ticker) <= 5:
-                        suggestions = search_tickers(typed_ticker)
+                    # Show suggestions if typing
+                    if ticker and 1 <= len(ticker) <= 5:
+                        suggestions = search_tickers(ticker)
                         
-                        # Only show if we found suggestions AND the current ticker is not already valid
                         if suggestions and len(suggestions) > 0:
-                            # Don't show suggestions if exact match exists
-                            exact_match = any(s['symbol'] == typed_ticker for s in suggestions)
+                            # Check if exact match
+                            exact_match = any(s['symbol'].upper() == ticker for s in suggestions)
                             
-                            if not exact_match or len(suggestions) > 1:
+                            # Show suggestions unless exact match with only 1 result
+                            if not (exact_match and len(suggestions) == 1):
                                 st.caption("💡 Click to select:")
                                 
-                                # Show suggestion buttons
                                 for j, sug in enumerate(suggestions[:5]):
                                     suggestion_label = f"{sug['symbol']} - {sug['name'][:25]} ({sug['exchange'][:10]})"
                                     
                                     if st.button(
                                         suggestion_label,
-                                        key=f"sug_{i}_{j}_{sug['symbol']}",
+                                        key=f"sug_{i}_{j}",
                                         use_container_width=True,
                                         type="secondary"
                                     ):
-                                        # Select this ticker and close suggestions
-                                        st.session_state.tickers[i] = sug['symbol']
+                                        # Update the text input value via session state
+                                        st.session_state[f"ticker_{i}"] = sug['symbol']
                                         st.rerun()
                 
                 with col2:
-                    weight = st.number_input(
+                    # Weight input
+                    if f"weight_{i}" not in st.session_state:
+                        st.session_state[f"weight_{i}"] = 0.0
+                    
+                    st.number_input(
                         f"Weight",
                         min_value=0.0, 
                         max_value=100.0,
-                        value=st.session_state.weights[i],
                         step=5.0,
                         key=f"weight_{i}",
                         label_visibility="collapsed",
                         format="%.0f"
                     )
-                    st.session_state.weights[i] = weight
+                    
+                    weight = st.session_state[f"weight_{i}"]
                 
                 with col3:
                     if ticker:
