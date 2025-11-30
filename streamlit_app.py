@@ -699,45 +699,43 @@ def main():
                 col1, col2, col3 = st.columns([3, 1, 2])
                 
                 with col1:
-                    # Text input for search/manual entry
-                    search_query = st.text_input(
-                        f"Ticker {i+1}",
-                        key=f"ticker_search_{i}",
-                        placeholder="Type: AAPL, LVMH, MC...",
+                    # Simple text input for manual entry
+                    manual_ticker = st.text_input(
+                        f"Position {i+1}",
+                        key=f"manual_{i}",
+                        placeholder="Type: AAPL, LVMH, MC.PA...",
                         label_visibility="collapsed",
-                        help="Type ticker symbol or company name"
+                        help="Type ticker or company name"
                     ).upper().strip()
                     
-                    ticker = search_query
+                    # Default ticker is manual input
+                    ticker = manual_ticker
                     
-                    # Show selectbox with suggestions if typing 1-5 chars
-                    if search_query and 1 <= len(search_query) <= 5:
-                        suggestions = search_tickers(search_query)
+                    # If user typed 1-6 chars, show suggestions selectbox
+                    if manual_ticker and 1 <= len(manual_ticker) <= 6:
+                        suggestions = search_tickers(manual_ticker)
                         
-                        if suggestions and len(suggestions) > 0:
-                            # Check if exact match
-                            exact_match = any(s['symbol'].upper() == search_query for s in suggestions)
+                        if suggestions and len(suggestions) > 1:
+                            # Build dropdown options
+                            options = [manual_ticker] + [
+                                f"{s['symbol']} - {s['name'][:30]} ({s['exchange']})" 
+                                for s in suggestions[:8]
+                            ]
                             
-                            # Show suggestions dropdown unless exact match with only 1 result
-                            if not (exact_match and len(suggestions) == 1):
-                                # Build options for selectbox
-                                options = [search_query] + [
-                                    f"{s['symbol']} - {s['name'][:25]} ({s['exchange'][:10]})" 
-                                    for s in suggestions if s['symbol'].upper() != search_query
-                                ]
-                                
-                                selected = st.selectbox(
-                                    "Select from suggestions",
-                                    options=options,
-                                    key=f"ticker_select_{i}",
-                                    label_visibility="collapsed"
-                                )
-                                
-                                # Extract ticker from selection
-                                if selected and " - " in selected:
-                                    ticker = selected.split(" - ")[0].strip()
-                                elif selected:
-                                    ticker = selected
+                            # Selectbox for selection
+                            selected = st.selectbox(
+                                f"💡 {len(suggestions)} suggestions - Select one",
+                                options=options,
+                                index=0,  # Default to typed value
+                                key=f"select_{i}",
+                                label_visibility="visible"
+                            )
+                            
+                            # Extract ticker symbol from selection
+                            if " - " in selected:
+                                ticker = selected.split(" - ")[0].strip()
+                            else:
+                                ticker = selected
                 
                 with col2:
                     # Weight input
