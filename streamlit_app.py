@@ -699,47 +699,45 @@ def main():
                 col1, col2, col3 = st.columns([3, 1, 2])
                 
                 with col1:
-                    # Initialize selection state
-                    if f"ticker_selected_{i}" not in st.session_state:
-                        st.session_state[f"ticker_selected_{i}"] = ""
-                    
-                    # Text input with value from selected state
-                    ticker_input = st.text_input(
+                    # Text input for search/manual entry
+                    search_query = st.text_input(
                         f"Ticker {i+1}",
-                        value=st.session_state[f"ticker_selected_{i}"],
-                        key=f"ticker_input_{i}",
+                        key=f"ticker_search_{i}",
                         placeholder="Type: AAPL, LVMH, MC...",
                         label_visibility="collapsed",
                         help="Type ticker symbol or company name"
                     ).upper().strip()
                     
-                    # Get the final ticker value
-                    ticker = ticker_input if ticker_input else st.session_state[f"ticker_selected_{i}"]
+                    ticker = search_query
                     
-                    # Show suggestions if typing (1-5 chars) and not exact match
-                    if ticker_input and 1 <= len(ticker_input) <= 5:
-                        suggestions = search_tickers(ticker_input)
+                    # Show selectbox with suggestions if typing 1-5 chars
+                    if search_query and 1 <= len(search_query) <= 5:
+                        suggestions = search_tickers(search_query)
                         
                         if suggestions and len(suggestions) > 0:
                             # Check if exact match
-                            exact_match = any(s['symbol'].upper() == ticker_input for s in suggestions)
+                            exact_match = any(s['symbol'].upper() == search_query for s in suggestions)
                             
-                            # Show suggestions unless exact match with only 1 result
+                            # Show suggestions dropdown unless exact match with only 1 result
                             if not (exact_match and len(suggestions) == 1):
-                                st.caption("💡 Click to select:")
+                                # Build options for selectbox
+                                options = [search_query] + [
+                                    f"{s['symbol']} - {s['name'][:25]} ({s['exchange'][:10]})" 
+                                    for s in suggestions if s['symbol'].upper() != search_query
+                                ]
                                 
-                                for j, sug in enumerate(suggestions[:5]):
-                                    suggestion_label = f"{sug['symbol']} - {sug['name'][:25]} ({sug['exchange'][:10]})"
-                                    
-                                    if st.button(
-                                        suggestion_label,
-                                        key=f"sug_{i}_{j}_{sug['symbol']}",
-                                        use_container_width=True,
-                                        type="secondary"
-                                    ):
-                                        # Store selected ticker and rerun
-                                        st.session_state[f"ticker_selected_{i}"] = sug['symbol']
-                                        st.rerun()
+                                selected = st.selectbox(
+                                    "Select from suggestions",
+                                    options=options,
+                                    key=f"ticker_select_{i}",
+                                    label_visibility="collapsed"
+                                )
+                                
+                                # Extract ticker from selection
+                                if selected and " - " in selected:
+                                    ticker = selected.split(" - ")[0].strip()
+                                elif selected:
+                                    ticker = selected
                 
                 with col2:
                     # Weight input
