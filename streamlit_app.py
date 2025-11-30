@@ -693,85 +693,114 @@ def main():
             st.markdown('<h2 class="section-header">💼 Portfolio Positions</h2>', unsafe_allow_html=True)
             st.info("Enter ticker symbols (e.g., AAPL, NVDA, MC.PA) and their weights.")
             
+            # Build popular tickers list for quick access
+            popular_options = [
+                ("", "— Select or type to search —"),
+                ("AAPL", "Apple Inc."),
+                ("MSFT", "Microsoft Corporation"),
+                ("GOOGL", "Alphabet Inc."),
+                ("NVDA", "NVIDIA Corporation"),
+                ("TSLA", "Tesla Inc."),
+                ("META", "Meta Platforms"),
+                ("AMZN", "Amazon.com"),
+                ("SPY", "SPDR S&P 500 ETF"),
+                ("QQQ", "Invesco QQQ Trust"),
+                ("MC.PA", "LVMH (Euronext Paris)"),
+                ("OR.PA", "L'Oréal (Euronext Paris)"),
+            ]
+            
             portfolio_data = []
             
             for i in range(10):
+                st.markdown(f"**Position {i+1}**")
                 col1, col2, col3 = st.columns([3, 1, 2])
                 
                 with col1:
-                    # Simple text input for manual entry
-                    manual_ticker = st.text_input(
-                        f"Position {i+1}",
-                        key=f"manual_{i}",
-                        placeholder="Type: AAPL, LVMH, MC.PA...",
+                    # Build selectbox options
+                    selectbox_options = [f"{t[0]} - {t[1]}" if t[0] else t[1] for t in popular_options]
+                    selectbox_options.append("🔍 Search for another ticker...")
+                    
+                    # Single selectbox
+                    selected_option = st.selectbox(
+                        f"Asset {i+1}",
+                        options=selectbox_options,
+                        key=f"asset_{i}",
                         label_visibility="collapsed",
-                        help="Type ticker or company name"
-                    ).upper().strip()
+                        help="Select from popular list or search"
+                    )
                     
-                    # Default ticker is manual input
-                    ticker = manual_ticker
-                    
-                    # If user typed 1-6 chars, show suggestions selectbox
-                    if manual_ticker and 1 <= len(manual_ticker) <= 6:
-                        suggestions = search_tickers(manual_ticker)
+                    # Check if user wants custom search
+                    if "🔍 Search" in selected_option:
+                        # Show search input
+                        search_query = st.text_input(
+                            "Search ticker",
+                            key=f"search_{i}",
+                            placeholder="Type: LVMH, BNP, SAP...",
+                            label_visibility="collapsed"
+                        ).upper().strip()
                         
-                        if suggestions and len(suggestions) > 1:
-                            # Build dropdown options
-                            options = [manual_ticker] + [
-                                f"{s['symbol']} - {s['name'][:30]} ({s['exchange']})" 
-                                for s in suggestions[:8]
-                            ]
-                            
-                            # Selectbox for selection
-                            selected = st.selectbox(
-                                f"💡 {len(suggestions)} suggestions - Select one",
-                                options=options,
-                                index=0,  # Default to typed value
-                                key=f"select_{i}",
-                                label_visibility="visible"
-                            )
-                            
-                            # Extract ticker symbol from selection
-                            if " - " in selected:
-                                ticker = selected.split(" - ")[0].strip()
+                        if search_query:
+                            suggestions = search_tickers(search_query)
+                            if suggestions:
+                                suggestion_options = [
+                                    f"{s['symbol']} - {s['name'][:35]} ({s['exchange']})" 
+                                    for s in suggestions[:10]
+                                ]
+                                
+                                selected_sug = st.selectbox(
+                                    "Results",
+                                    options=suggestion_options,
+                                    key=f"sug_result_{i}",
+                                    label_visibility="collapsed"
+                                )
+                                ticker = selected_sug.split(" - ")[0].strip() if selected_sug else ""
                             else:
-                                ticker = selected
+                                st.warning("No results found")
+                                ticker = ""
+                        else:
+                            ticker = ""
+                    else:
+                        # Extract ticker from popular selection
+                        if selected_option and " - " in selected_option:
+                            ticker = selected_option.split(" - ")[0].strip()
+                        else:
+                            ticker = ""
                 
                 with col2:
                     # Weight input
                     weight = st.number_input(
-                        f"Weight",
+                        f"Weight {i+1}",
                         min_value=0.0, 
                         max_value=100.0,
                         value=0.0,
                         step=5.0,
                         key=f"weight_{i}",
                         label_visibility="collapsed",
-                        format="%.0f"
+                        format="%.1f"
                     )
                 
                 with col3:
+                    # Validation status
                     if ticker:
-                        try:
-                            ticker_info = validate_and_get_ticker_info(ticker)
-                            if ticker_info and ticker_info.get('valid'):
-                                name = ticker_info.get('name', '')[:18]
-                                exchange = ticker_info.get('exchange', '')[:8]
-                                st.success(f"✓ {name}")
-                                
-                                if weight > 0:
-                                    portfolio_data.append({
-                                        'ticker': ticker,
-                                        'weight': weight,
-                                        'name': ticker_info.get('name', ticker),
-                                        'exchange': ticker_info.get('exchange', '')
-                                    })
-                            else:
-                                st.error("✗ Invalid")
-                        except Exception as e:
-                            st.error(f"✗ Error: {str(e)[:15]}")
+                        ticker_info = validate_and_get_ticker_info(ticker)
+                        if ticker_info and ticker_info.get('valid'):
+                            name = ticker_info.get('name', '')[:20]
+                            st.success(f"✓ {name}")
+                            
+                            # Add to portfolio data (even if weight = 0, for live preview)
+                            portfolio_data.append({
+                                'ticker': ticker,
+                                'weight': weight,
+                                'name': ticker_info.get('name', ticker),
+                                'exchange': ticker_info.get('exchange', '')
+                            })
+                        else:
+                            st.error("✗ Invalid ticker")
                     else:
                         st.caption("—")
+                
+                # Small spacer
+                st.markdown("<div style='margin-bottom: 8px;'></div>", unsafe_allow_html=True)
             
             st.divider()
             
@@ -810,30 +839,38 @@ def main():
             st.markdown('<h2 class="section-header">📊 Live Preview</h2>', unsafe_allow_html=True)
             
             if portfolio_data:
-                # Show pie chart
-                fig_preview = create_preview_allocation_chart(portfolio_data, capital)
-                if fig_preview:
-                    st.plotly_chart(fig_preview, use_container_width=True)
+                # Filter only positions with weight > 0 for the chart
+                weighted_portfolio = [p for p in portfolio_data if p['weight'] > 0]
                 
-                # Summary table
-                st.markdown("**Portfolio Summary**")
-                summary_df = pd.DataFrame([
-                    {
-                        'Ticker': p['ticker'],
-                        'Name': p['name'][:22] + '...' if len(p['name']) > 22 else p['name'],
-                        'Weight': f"{p['weight']:.1f}%",
-                        'Value': f"${capital * p['weight'] / 100:,.0f}"
-                    }
-                    for p in portfolio_data
-                ])
-                st.dataframe(summary_df, use_container_width=True, hide_index=True)
+                if weighted_portfolio:
+                    # Show pie chart
+                    fig_preview = create_preview_allocation_chart(weighted_portfolio, capital)
+                    if fig_preview:
+                        st.plotly_chart(fig_preview, use_container_width=True)
+                else:
+                    st.info("💡 Enter weights to see portfolio allocation")
+                
+                # Summary table - only show weighted positions
+                if weighted_portfolio:
+                    st.markdown("**Portfolio Composition**")
+                    summary_df = pd.DataFrame([
+                        {
+                            'Ticker': p['ticker'],
+                            'Name': p['name'][:25] + '...' if len(p['name']) > 25 else p['name'],
+                            'Weight': f"{p['weight']:.1f}%",
+                            'Value': f"${capital * p['weight'] / 100:,.0f}"
+                        }
+                        for p in weighted_portfolio
+                    ])
+                    st.dataframe(summary_df, use_container_width=True, hide_index=True)
                 
                 # Metrics
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric("Total Invested", f"${capital * total_weight / 100:,.0f}")
-                with col2:
-                    st.metric("Positions", f"{len(portfolio_data)}")
+                if weighted_portfolio:
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("Total Allocated", f"${capital * total_weight / 100:,.0f}")
+                    with col2:
+                        st.metric("Positions", f"{len(weighted_portfolio)}")
             else:
                 st.info("👈 Add tickers with weights > 0 to see the live preview!")
                 
