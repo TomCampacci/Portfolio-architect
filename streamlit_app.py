@@ -354,23 +354,12 @@ def main():
     
     # ==================== TAB 1: MARKET OVERVIEW ====================
     with tab1:
-        # Header avec bouton refresh et toggle auto-refresh
-        header_col1, header_col2, header_col3 = st.columns([2, 1, 1])
-        with header_col1:
-            st.markdown('<h2 class="section-header">💱 Live Market Data</h2>', unsafe_allow_html=True)
-        with header_col2:
-            auto_refresh_enabled = st.checkbox("🔄 Auto-refresh (5s)", value=True, key="auto_refresh_market")
-        with header_col3:
-            if st.button("⚡ Refresh Now", use_container_width=True):
-                st.cache_data.clear()
-                st.rerun()
+        # Header simple
+        st.markdown('<h2 class="section-header">💱 Live Market Data</h2>', unsafe_allow_html=True)
         
         # Afficher l'heure de dernière mise à jour
         current_time = datetime.now().strftime("%H:%M:%S")
-        if auto_refresh_enabled:
-            st.caption(f"🟢 Live Mode | Last updated: {current_time} | Auto-refresh every {MARKET_DATA_REFRESH_INTERVAL}s")
-        else:
-            st.caption(f"⚪ Manual Mode | Last updated: {current_time}")
+        st.caption(f"🟢 Live | Updated: {current_time} | Auto-refresh every {MARKET_DATA_REFRESH_INTERVAL}s")
         
         with st.spinner("Fetching market data..."):
             market_data = fetch_market_data()
@@ -408,11 +397,10 @@ def main():
         else:
             st.warning("No commodity data available at the moment.")
         
-        # Auto-refresh mechanism
-        if auto_refresh_enabled:
-            import time
-            time.sleep(MARKET_DATA_REFRESH_INTERVAL)
-            st.rerun()
+        # Auto-refresh automatique
+        import time
+        time.sleep(MARKET_DATA_REFRESH_INTERVAL)
+        st.rerun()
     
     # ==================== TAB 2: PORTFOLIO SETUP ====================
     with tab2:
