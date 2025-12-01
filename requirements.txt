@@ -8,7 +8,10 @@ matplotlib>=3.7.0
 plotly>=5.18.0
 requests>=2.31.0
 
-# Optional but recommended
+# Statistical and machine learning
 scipy>=1.11.0
+scikit-learn>=1.3.0
+
+# Excel export
 openpyxl>=3.1.0
 
