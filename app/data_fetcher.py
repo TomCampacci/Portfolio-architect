@@ -193,12 +193,12 @@ def fetch_market_data():
         'CL=F': 'Crude Oil', 'BTC-USD': 'Bitcoin'
     }
     
-    # Fetch all at once avec 2 jours pour calculer la variation
-    all_symbols = {**forex_pairs, **indexes, **commodities}
+    # Méthode 1: Téléchargement groupé pour forex et indices
     try:
-        tickers_data = yf.download(list(all_symbols.keys()), period="5d", progress=False)
+        all_symbols_bulk = list(forex_pairs.keys()) + list(indexes.keys())
+        tickers_data = yf.download(all_symbols_bulk, period="5d", progress=False)
         
-        # Process each category
+        # Process forex
         for symbol, name in forex_pairs.items():
             try:
                 closes = tickers_data['Close'][symbol].dropna()
@@ -210,6 +210,7 @@ def fetch_market_data():
             except:
                 pass
         
+        # Process indexes
         for symbol, name in indexes.items():
             try:
                 closes = tickers_data['Close'][symbol].dropna()
@@ -220,19 +221,29 @@ def fetch_market_data():
                     data['indexes'][name] = {'price': current, 'change': change}
             except:
                 pass
-        
-        for symbol, name in commodities.items():
-            try:
-                closes = tickers_data['Close'][symbol].dropna()
-                if len(closes) >= 2:
-                    current = closes.iloc[-1]
-                    previous = closes.iloc[-2]
-                    change = ((current - previous) / previous) * 100
-                    data['commodities'][name] = {'price': current, 'change': change}
-            except:
-                pass
     except:
         pass
+    
+    # Méthode 2: Ticker individuel pour commodités (plus fiable)
+    for symbol, name in commodities.items():
+        try:
+            ticker = yf.Ticker(symbol)
+            info = ticker.info
+            
+            # Prix actuel
+            current_price = info.get('regularMarketPrice') or info.get('currentPrice')
+            
+            # Variation depuis ouverture ou précédente clôture
+            previous_close = info.get('previousClose') or info.get('regularMarketPreviousClose')
+            
+            if current_price and previous_close:
+                change = ((current_price - previous_close) / previous_close) * 100
+                data['commodities'][name] = {'price': current_price, 'change': change}
+            elif current_price:
+                # Si pas de previous close, mettre 0% de variation
+                data['commodities'][name] = {'price': current_price, 'change': 0.0}
+        except:
+            pass
     
     return data
 
