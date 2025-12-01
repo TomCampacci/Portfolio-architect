@@ -4,6 +4,7 @@ Gère : validation tickers, recherche, récupération prix historiques
 """
 
 import yfinance as yf
+import pandas as pd
 import requests
 import streamlit as st
 from .config import POPULAR_TICKERS, YAHOO_FINANCE_TIMEOUT, MAX_SEARCH_RESULTS, CACHE_TTL_SECONDS, MARKET_DATA_CACHE_TTL
@@ -132,16 +133,29 @@ def fetch_historical_prices(tickers, period="1y"):
         pandas.DataFrame: DataFrame avec prix de clôture ajustés
     """
     try:
-        data = yf.download(tickers, period=period, progress=False)['Adj Close']
+        # Utiliser auto_adjust=True pour obtenir des prix ajustés dans la colonne 'Close'
+        data = yf.download(tickers, period=period, progress=False, auto_adjust=True)
+        
         if data.empty:
             return None
-        # Convert to DataFrame if single ticker (returns Series)
-        if len(tickers) == 1:
-            data = data.to_frame()
-            data.columns = tickers
-        return data
+        
+        # Extraire la colonne 'Close' (déjà ajustée avec auto_adjust=True)
+        if isinstance(data.columns, pd.MultiIndex):
+            # Cas multi-tickers : MultiIndex (metric, ticker)
+            close_data = data['Close']
+        else:
+            # Cas single ticker : colonnes simples
+            if 'Close' in data.columns:
+                close_data = data[['Close']]
+                close_data.columns = tickers
+            else:
+                return None
+        
+        return close_data
     except Exception as e:
         st.error(f"Error fetching data: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
         return None
 
 @st.cache_data(ttl=CACHE_TTL_SECONDS)
