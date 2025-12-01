@@ -251,9 +251,13 @@ def validate_and_get_ticker_info(symbol):
     """Wrapper for validate_ticker_new"""
     return validate_ticker_new(symbol)
 
-def fetch_historical_prices(tickers, years=5):
+def fetch_historical_prices(tickers, years="max"):
     """Wrapper for fetch_prices_new with years conversion"""
-    return fetch_prices_new(tickers, period=f"{years}y")
+    if years == "max":
+        period = "max"
+    else:
+        period = f"{years}y"
+    return fetch_prices_new(tickers, period=period)
 
 # ===================== LIVE PREVIEW CHART (for Portfolio Setup tab) =====================
 
@@ -313,25 +317,33 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    # Sidebar Configuration
-    with st.sidebar:
-        st.header("⚙️ Configuration")
-        
-        capital = st.number_input("💰 Initial Capital ($)", min_value=100, value=10000, step=1000)
-        currency = st.selectbox("💱 Currency", ["USD", "EUR", "GBP"])
-        
-        st.divider()
-        
-        st.subheader("📈 Analysis Settings")
-        years = st.slider("Historical Data (Years)", 1, 10, 5)
-        mc_simulations = st.slider("Monte Carlo Simulations", 100, 5000, 1000, step=100)
-        
-        st.divider()
-        
-        st.subheader("⚡ Quick Actions")
-        if st.button("🔄 Refresh Market Data"):
-            st.cache_data.clear()
-            st.rerun()
+    # Paramètres d'analyse fixés
+    years = "max"  # Toujours le maximum de données disponibles
+    mc_simulations = 100000  # 100K simulations pour précision
+    mc_display_paths = 5000  # Nombre de paths à afficher (esthétique)
+    
+    # Configuration du portfolio - À saisir avant les tabs
+    st.markdown('<h2 class="section-header">⚙️ Portfolio Configuration</h2>', unsafe_allow_html=True)
+    
+    config_col1, config_col2 = st.columns(2)
+    with config_col1:
+        capital = st.number_input(
+            "💰 Initial Capital", 
+            min_value=100.0, 
+            value=10000.0, 
+            step=1000.0,
+            format="%.0f",
+            help="Total capital to invest"
+        )
+    with config_col2:
+        currency = st.selectbox(
+            "💱 Currency", 
+            options=["USD", "EUR", "GBP", "CHF", "JPY"],
+            index=0,
+            help="Portfolio currency"
+        )
+    
+    st.divider()
     
     # Main Content - Tabs
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Market Overview", "💼 Portfolio Setup", "📈 Chart Selection", "📉 Analysis Results"])
@@ -727,8 +739,8 @@ def main():
                         tickers = [p['ticker'] for p in portfolio_data]
                         weights_dict = {p['ticker']: p['weight'] / 100 for p in portfolio_data}
                         
-                        # Récupérer les prix historiques
-                        prices = fetch_prices_new(tickers, period=f"{years}y")
+                        # Récupérer les prix historiques (maximum disponible)
+                        prices = fetch_prices_new(tickers, period="max")
                         
                         if prices is not None and not prices.empty:
                             # Calculer les métriques complètes avec app.calculations
@@ -755,7 +767,7 @@ def main():
                             # Récupérer benchmarks si sélectionnés
                             bench_data = {}
                             if selected_benchmarks:
-                                bench_prices = fetch_prices_new(selected_benchmarks, period=f"{years}y")
+                                bench_prices = fetch_prices_new(selected_benchmarks, period="max")
                                 if bench_prices is not None:
                                     for bench in selected_benchmarks:
                                         if bench in bench_prices.columns:
@@ -871,7 +883,7 @@ def main():
                             continue
                         
                         if chart_num == 7:
-                            fig = chart_func(mc_sims, capital, n_display=1000)
+                            fig = chart_func(mc_sims, capital, n_display=mc_display_paths)
                         elif chart_num == 8:
                             fig = chart_func(mc_sims)
                         elif chart_num == 9:
