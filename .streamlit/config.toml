@@ -7,23 +7,24 @@
 # Change ces valeurs pour modifier l'apparence
 
 [theme]
+# LIGHT INSTITUTIONAL THEME (Interactive Brokers / Fidelity Style)
 # Couleur principale (boutons, liens, accents)
-primaryColor = "#e94560"           # Rouge/Rose vif
+primaryColor = "#0052CC"           # Bleu corporatif
 
 # Couleur de fond principale
-backgroundColor = "#0f0f23"        # Bleu très foncé
+backgroundColor = "#FFFFFF"        # Blanc pur
 
 # Couleur de fond secondaire (cartes, sidebar)
-secondaryBackgroundColor = "#1a1a2e"  # Bleu foncé
+secondaryBackgroundColor = "#F5F7FA"  # Gris très clair
 
 # Couleur du texte
-textColor = "#ffffff"              # Blanc
+textColor = "#131722"              # Noir profond
 
 # Police de caractères
 font = "sans serif"                # Options: "sans serif", "serif", "monospace"
 
-# Base de thème (optionnel)
-# base = "dark"                    # Options: "light", "dark"
+# Base de thème
+base = "light"                     # Options: "light", "dark"
 
 
 # ===================== AUTRES THÈMES PRÉDÉFINIS =====================

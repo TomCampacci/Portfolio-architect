@@ -41,19 +41,19 @@ from app.charts import get_chart_function, CHART_FUNCTIONS
 
 # ===================== PAGE CONFIGURATION =====================
 st.set_page_config(
-    page_title="Portfolio Architect",
-    page_icon="📊",
+    page_title="Portfolio Architect | Professional Analytics",
+    page_icon="▲",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # ===================== CHART DEFINITIONS (24 Charts) =====================
 CHART_GROUPS = {
-    "📊 Portfolio & Sector": [1, 2, 3, 4, 5, 6],
-    "🎲 Monte Carlo": [7, 8, 9, 10, 11, 12],
-    "⚠️ Risk Metrics": [13, 14, 15, 16, 17],
-    "📈 Benchmarks": [18, 19, 20, 21],
-    "🔄 Sector & Regime": [22, 23, 24],
+    "PORTFOLIO & SECTOR": [1, 2, 3, 4, 5, 6],
+    "MONTE CARLO SIMULATION": [7, 8, 9, 10, 11, 12],
+    "RISK METRICS": [13, 14, 15, 16, 17],
+    "BENCHMARKS": [18, 19, 20, 21],
+    "SECTOR & REGIME": [22, 23, 24],
 }
 
 CHART_NAMES = {
@@ -94,95 +94,199 @@ CHART_DESCRIPTIONS = {
     24: "Sector rotation analysis showing momentum shifts between sectors. Identify trending sectors."
 }
 
-# ===================== CUSTOM CSS =====================
+# ===================== CUSTOM CSS - LIGHT INSTITUTIONAL =====================
 st.markdown("""
 <style>
-    /* Main Theme */
+    /* Light Institutional Theme - Interactive Brokers / Fidelity Style */
+    
+    /* Main App Background */
     .stApp {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        background-color: #FFFFFF;
     }
     
-    /* Header */
+    /* Header Section */
     .main-header {
-        background: linear-gradient(90deg, #e94560 0%, #ff6b6b 100%);
-        padding: 1.5rem 2rem;
-        border-radius: 12px;
-        margin-bottom: 2rem;
-        box-shadow: 0 4px 20px rgba(233, 69, 96, 0.3);
+        background: linear-gradient(135deg, #0052CC 0%, #0747A6 100%);
+        padding: 2rem 2.5rem;
+        border-radius: 0;
+        margin-bottom: 0;
+        border-bottom: 3px solid #0052CC;
     }
     
     .main-header h1 {
-        color: white;
+        color: #FFFFFF;
         margin: 0;
-        font-size: 2.2rem;
-        font-weight: 700;
+        font-size: 2rem;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
     }
     
     .main-header p {
-        color: rgba(255,255,255,0.85);
+        color: rgba(255,255,255,0.9);
         margin: 0.5rem 0 0 0;
-        font-size: 1rem;
+        font-size: 0.95rem;
+        font-weight: 400;
     }
     
     /* Section Headers */
     .section-header {
-        color: #e94560;
-        font-size: 1.3rem;
+        color: #131722;
+        font-size: 1.1rem;
         font-weight: 600;
         margin: 1.5rem 0 1rem 0;
         padding-bottom: 0.5rem;
-        border-bottom: 2px solid rgba(233, 69, 96, 0.3);
+        border-bottom: 2px solid #E0E3EB;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
     
-    /* Chart category header */
+    /* Chart Category Headers */
     .chart-category {
-        background: rgba(233, 69, 96, 0.15);
-        border-left: 4px solid #e94560;
-        padding: 0.5rem 1rem;
-        margin: 1rem 0 0.5rem 0;
-        border-radius: 0 8px 8px 0;
+        background: #F5F7FA;
+        border-left: 4px solid #0052CC;
+        padding: 0.75rem 1.25rem;
+        margin: 1.5rem 0 1rem 0;
+        border-radius: 0;
         font-weight: 600;
-        color: white;
+        color: #131722;
+        text-transform: uppercase;
+        font-size: 0.9rem;
+        letter-spacing: 0.5px;
     }
     
-    /* Suggestion buttons */
-    .suggestion-btn {
-        background: rgba(55, 66, 250, 0.2);
-        border: 1px solid #3742fa;
-        border-radius: 8px;
-        padding: 0.5rem 1rem;
-        margin: 0.25rem;
-        cursor: pointer;
-        transition: all 0.2s;
+    /* Tabs Styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0;
+        background-color: #F5F7FA;
+        border-bottom: 2px solid #E0E3EB;
     }
     
-    .suggestion-btn:hover {
-        background: rgba(55, 66, 250, 0.4);
-        transform: translateY(-2px);
+    .stTabs [data-baseweb="tab"] {
+        background-color: transparent;
+        border: none;
+        color: #6A6D78;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.85rem;
+        padding: 1rem 2rem;
     }
     
-    /* Sidebar Styling */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+    .stTabs [data-baseweb="tab"]:hover {
+        background-color: rgba(0, 82, 204, 0.05);
+        color: #0052CC;
+    }
+    
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
+        background-color: #FFFFFF;
+        color: #0052CC;
+        border-bottom: 3px solid #0052CC;
     }
     
     /* Buttons */
     .stButton > button {
-        background: linear-gradient(90deg, #e94560 0%, #ff6b6b 100%);
-        color: white;
+        background-color: #0052CC;
+        color: #FFFFFF;
         border: none;
-        font-weight: 600;
-        transition: all 0.3s ease;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        border-radius: 3px;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
     }
     
     .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+        background-color: #0747A6;
+        box-shadow: 0 2px 8px rgba(0, 82, 204, 0.25);
+    }
+    
+    /* Metrics */
+    [data-testid="stMetricValue"] {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #131722;
+    }
+    
+    [data-testid="stMetricDelta"] svg {
+        display: none;
+    }
+    
+    [data-testid="stMetricDelta"] {
+        font-weight: 500;
+    }
+    
+    /* Positive/Negative Colors */
+    [data-testid="stMetricDelta"][data-testid*="increase"] {
+        color: #00875A;
+    }
+    
+    [data-testid="stMetricDelta"][data-testid*="decrease"] {
+        color: #DE350B;
+    }
+    
+    /* Input Fields */
+    .stTextInput > div > div > input,
+    .stNumberInput > div > div > input,
+    .stSelectbox > div > div {
+        background-color: #FFFFFF;
+        border: 1px solid #E0E3EB;
+        border-radius: 3px;
+        color: #131722;
+    }
+    
+    .stTextInput > div > div > input:focus,
+    .stNumberInput > div > div > input:focus {
+        border-color: #0052CC;
+        box-shadow: 0 0 0 1px #0052CC;
+    }
+    
+    /* Dividers */
+    hr {
+        border-color: #E0E3EB;
+        margin: 1.5rem 0;
+    }
+    
+    /* Info/Warning/Error boxes */
+    .stInfo {
+        background-color: #E8F2FF;
+        border-left: 4px solid #0052CC;
+        color: #131722;
+    }
+    
+    .stWarning {
+        background-color: #FFF4E5;
+        border-left: 4px solid #FF8B00;
+        color: #131722;
+    }
+    
+    .stSuccess {
+        background-color: #E3FCEF;
+        border-left: 4px solid #00875A;
+        color: #131722;
+    }
+    
+    .stError {
+        background-color: #FFEBE6;
+        border-left: 4px solid #DE350B;
+        color: #131722;
     }
     
     /* Hide Streamlit branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+    
+    /* Status indicator */
+    .status-live {
+        color: #00875A;
+        font-weight: 600;
+    }
+    
+    .status-closed {
+        color: #DE350B;
+        font-weight: 600;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -316,8 +420,8 @@ def main():
     # Header
     st.markdown("""
     <div class="main-header">
-        <h1>📊 Portfolio Architect</h1>
-        <p>Advanced Portfolio Analysis & Monte Carlo Simulation | Built by Tom Campacci</p>
+        <h1>PORTFOLIO ARCHITECT</h1>
+        <p>Advanced Portfolio Analysis & Risk Management Platform</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -327,12 +431,12 @@ def main():
     mc_display_paths = 5000  # Nombre de paths à afficher (esthétique)
     
     # Configuration du portfolio - À saisir avant les tabs
-    st.markdown('<h2 class="section-header">⚙️ Portfolio Configuration</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 class="section-header">CONFIGURATION</h2>', unsafe_allow_html=True)
     
     config_col1, config_col2 = st.columns(2)
     with config_col1:
         capital = st.number_input(
-            "💰 Initial Capital", 
+            "CAPITAL ($)", 
             min_value=100.0, 
             value=10000.0, 
             step=1000.0,
@@ -341,7 +445,7 @@ def main():
         )
     with config_col2:
         currency = st.selectbox(
-            "💱 Currency", 
+            "CURRENCY", 
             options=["USD", "EUR", "GBP", "CHF", "JPY"],
             index=0,
             help="Portfolio currency"
@@ -350,23 +454,23 @@ def main():
     st.divider()
     
     # Main Content - Tabs
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Market Overview", "💼 Portfolio Setup", "📈 Chart Selection", "📉 Analysis Results"])
+    tab1, tab2, tab3, tab4 = st.tabs(["MARKET DATA", "PORTFOLIO", "ANALYTICS", "RESULTS"])
     
     # ==================== TAB 1: MARKET OVERVIEW ====================
     with tab1:
         # Header simple
-        st.markdown('<h2 class="section-header">💱 Live Market Data</h2>', unsafe_allow_html=True)
+        st.markdown('<h2 class="section-header">MARKET DATA</h2>', unsafe_allow_html=True)
         
         # Afficher l'heure de dernière mise à jour
         current_time = datetime.now().strftime("%H:%M:%S")
-        st.caption(f"🟢 Live Data | Last updated: {current_time} | Data cached for {MARKET_DATA_REFRESH_INTERVAL}s")
+        st.caption(f"● LIVE  |  Last updated: {current_time}  |  Cache: {MARKET_DATA_REFRESH_INTERVAL}s")
         
         with st.spinner("Fetching market data..."):
             market_data = fetch_market_data()
         
         st.divider()
         
-        st.subheader("📊 Major Indexes")
+        st.subheader("MAJOR INDICES")
         if market_data.get('indexes'):
             cols = st.columns(3)
             for i, (name, data) in enumerate(market_data.get('indexes', {}).items()):
@@ -377,7 +481,7 @@ def main():
         
         st.divider()
         
-        st.subheader("💱 Forex Rates")
+        st.subheader("FOREX RATES")
         if market_data.get('forex'):
             cols = st.columns(4)
             for i, (name, data) in enumerate(market_data.get('forex', {}).items()):
@@ -388,7 +492,7 @@ def main():
         
         st.divider()
         
-        st.subheader("🏆 Commodities")
+        st.subheader("COMMODITIES")
         if market_data.get('commodities'):
             cols = st.columns(3)
             for i, (name, data) in enumerate(market_data.get('commodities', {}).items()):
@@ -402,7 +506,7 @@ def main():
         col_input, col_preview = st.columns([1.2, 1])
         
         with col_input:
-            st.markdown('<h2 class="section-header">💼 Portfolio Positions</h2>', unsafe_allow_html=True)
+            st.markdown('<h2 class="section-header">PORTFOLIO POSITIONS</h2>', unsafe_allow_html=True)
             st.info("Enter ticker symbols (e.g., AAPL, NVDA, MC.PA) and their weights.")
             
             # Utiliser les options depuis app.config
@@ -555,7 +659,7 @@ def main():
                             # Show conversion info
                             if weight > 0:
                                 amount = capital * weight / 100
-                                st.caption(f"💰 ${amount:,.0f} ({weight:.1f}%)")
+                                st.caption(f"${amount:,.0f} ({weight:.1f}%)")
                             
                             # Add to portfolio data (even if weight = 0, for live preview)
                             portfolio_data.append({
@@ -590,7 +694,7 @@ def main():
             st.divider()
             
             # Benchmarks
-            st.markdown('<h2 class="section-header">📈 Benchmarks</h2>', unsafe_allow_html=True)
+            st.markdown('<h2 class="section-header">BENCHMARKS</h2>', unsafe_allow_html=True)
             
             benchmark_options = {
                 '^GSPC': 'S&P 500', '^NDX': 'Nasdaq 100', '^DJI': 'Dow Jones',
@@ -607,7 +711,7 @@ def main():
         
         # ========== PREVIEW COLUMN ==========
         with col_preview:
-            st.markdown('<h2 class="section-header">📊 Live Preview</h2>', unsafe_allow_html=True)
+            st.markdown('<h2 class="section-header">LIVE PREVIEW</h2>', unsafe_allow_html=True)
             
             if portfolio_data:
                 # Filter only positions with weight > 0 for the chart
@@ -661,7 +765,7 @@ def main():
     
     # ==================== TAB 3: CHART SELECTION ====================
     with tab3:
-        st.markdown('<h2 class="section-header">📈 Select Analysis Charts</h2>', unsafe_allow_html=True)
+        st.markdown('<h2 class="section-header">CHART SELECTION</h2>', unsafe_allow_html=True)
         st.info("Choose which charts you want to generate. Select categories or individual charts.")
         
         # Initialize all chart selection states if not exists
@@ -745,7 +849,7 @@ def main():
         st.divider()
         
         # Run Analysis Button
-        if st.button("🚀 Run Portfolio Analysis", type="primary", use_container_width=True, key="run_analysis"):
+        if st.button("RUN ANALYSIS", type="primary", use_container_width=True, key="run_analysis"):
             if not portfolio_data:
                 st.error("Please add at least one position in the Portfolio Setup tab!")
             elif not selected_charts:
@@ -829,7 +933,7 @@ def main():
             selected = results.get('selected_charts', list(range(1, 25)))
             capital = results['capital']
             
-            st.markdown('<h2 class="section-header">📊 Portfolio Metrics</h2>', unsafe_allow_html=True)
+            st.markdown('<h2 class="section-header">PORTFOLIO METRICS</h2>', unsafe_allow_html=True)
             
             # Calculer les métriques clés
             port_returns = portfolio_metrics['port_ret_d']
@@ -866,7 +970,7 @@ def main():
             tickers = results['tickers']
             
             # Afficher les graphiques sélectionnés
-            st.markdown('<h2 class="section-header">📈 Generated Charts</h2>', unsafe_allow_html=True)
+            st.markdown('<h2 class="section-header">ANALYSIS CHARTS</h2>', unsafe_allow_html=True)
             
             for chart_num in sorted(selected):
                 try:
@@ -1007,7 +1111,7 @@ def main():
                         st.code(traceback.format_exc())
             
             st.divider()
-            st.markdown('<h2 class="section-header">📥 Export Results</h2>', unsafe_allow_html=True)
+            st.markdown('<h2 class="section-header">EXPORT DATA</h2>', unsafe_allow_html=True)
             
             summary_df = pd.DataFrame({
                 'Metric': ['Total Return', 'Annual Return', 'Volatility', 'Sharpe Ratio', 'Max Drawdown', 'VaR 95%', 'CVaR 95%'],
@@ -1024,7 +1128,7 @@ def main():
             
             csv = summary_df.to_csv(index=False)
             st.download_button(
-                label="📥 Download Summary (CSV)",
+                label="DOWNLOAD SUMMARY (CSV)",
                 data=csv,
                 file_name="portfolio_analysis.csv",
                 mime="text/csv"
@@ -1034,9 +1138,9 @@ def main():
 def render_footer():
     st.markdown("---")
     st.markdown("""
-    <div style="text-align: center; color: rgba(255,255,255,0.5); padding: 1rem;">
-        <p>📊 Portfolio Architect | Built with ❤️ by Tom Campacci</p>
-        <p style="font-size: 0.8rem;">Data provided by Yahoo Finance | For educational purposes only</p>
+    <div style="text-align: center; color: #6A6D78; padding: 2rem 1rem 1rem 1rem; border-top: 1px solid #E0E3EB;">
+        <p style="margin: 0; font-size: 0.85rem;">PORTFOLIO ARCHITECT | Professional Analytics Platform</p>
+        <p style="margin: 0.5rem 0 0 0; font-size: 0.75rem;">Data provided by Yahoo Finance | For educational and informational purposes only</p>
     </div>
     """, unsafe_allow_html=True)
 
