@@ -16,6 +16,25 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import requests
 
+# Import modules personnalisés
+from app.config import CHART_COLORS, CHART_DESCRIPTIONS
+from app.data_fetcher import (
+    validate_and_get_ticker_info as validate_ticker_new,
+    search_tickers as search_tickers_new,
+    fetch_historical_prices as fetch_prices_new,
+    get_current_price
+)
+from app.calculations import (
+    compute_portfolio_metrics,
+    mc_gaussian_with_randomness,
+    calculate_sharpe_ratio,
+    calculate_var,
+    calculate_expected_shortfall,
+    calculate_max_drawdown,
+    calculate_calmar_ratio
+)
+from app.charts import get_chart_function, CHART_FUNCTIONS
+
 # ===================== PAGE CONFIGURATION =====================
 st.set_page_config(
     page_title="Portfolio Architect",
@@ -1055,38 +1074,70 @@ def main():
                 st.error("Portfolio weights must sum to approximately 100%!")
             else:
                 with st.spinner(f"Running analysis for {len(selected_charts)} charts... This may take a moment."):
-                    tickers = [p['ticker'] for p in portfolio_data]
-                    weights = {p['ticker']: p['weight'] / 100 for p in portfolio_data}
-                    
-                    prices = fetch_historical_prices(tickers, years)
-                    
-                    if prices is not None and not prices.empty:
-                        metrics = compute_portfolio_metrics(prices, weights, capital)
-                        mc_results = run_monte_carlo(metrics, capital, mc_simulations)
+                    try:
+                        # Préparer les données
+                        tickers = [p['ticker'] for p in portfolio_data]
+                        weights_dict = {p['ticker']: p['weight'] / 100 for p in portfolio_data}
                         
-                        bench_data = {}
-                        if selected_benchmarks:
-                            bench_prices = fetch_historical_prices(selected_benchmarks, years)
-                            if bench_prices is not None:
-                                for bench in selected_benchmarks:
-                                    if bench in bench_prices.columns:
-                                        bench_returns = bench_prices[bench].pct_change().dropna()
-                                        bench_cumulative = (1 + bench_returns).cumprod()
-                                        bench_data[benchmark_options.get(bench, bench)] = capital * bench_cumulative
+                        # Récupérer les prix historiques
+                        prices = fetch_prices_new(tickers, period=f"{years}y")
                         
-                        st.session_state.analysis_results = {
-                            'metrics': metrics,
-                            'prices': prices,
-                            'weights': weights,
-                            'mc_results': mc_results,
-                            'benchmarks': bench_data,
-                            'capital': capital,
-                            'selected_charts': selected_charts
-                        }
-                        
-                        st.success(f"✅ Analysis complete! {len(selected_charts)} charts generated. Check the Results tab.")
-                    else:
-                        st.error("Could not fetch price data. Please check your tickers.")
+                        if prices is not None and not prices.empty:
+                            # Calculer les métriques complètes avec app.calculations
+                            portfolio_metrics = compute_portfolio_metrics(
+                                prices=prices,
+                                weights_raw=weights_dict,
+                                cov_method="ledoit",
+                                annualization=252
+                            )
+                            
+                            # Lancer simulations Monte Carlo si nécessaire
+                            mc_simulations_data = None
+                            if any(n in selected_charts for n in range(7, 13)):  # Charts MC (7-12)
+                                mc_simulations_data = mc_gaussian_with_randomness(
+                                    mu_a=portfolio_metrics['mu_a'],
+                                    cov_a=portfolio_metrics['cov_a'],
+                                    w=portfolio_metrics['w'],
+                                    start_value=capital,
+                                    steps=60,  # 5 ans en mois
+                                    paths=mc_simulations,
+                                    randomness_factor=0.30
+                                )
+                            
+                            # Récupérer benchmarks si sélectionnés
+                            bench_data = {}
+                            if selected_benchmarks:
+                                bench_prices = fetch_prices_new(selected_benchmarks, period=f"{years}y")
+                                if bench_prices is not None:
+                                    for bench in selected_benchmarks:
+                                        if bench in bench_prices.columns:
+                                            bench_returns = bench_prices[bench].pct_change().dropna()
+                                            bench_cumulative = (1 + bench_returns).cumprod()
+                                            bench_data[benchmark_options.get(bench, bench)] = {
+                                                'returns': bench_returns,
+                                                'cumulative': bench_cumulative,
+                                                'prices': bench_prices[bench]
+                                            }
+                            
+                            # Stocker tous les résultats
+                            st.session_state.analysis_results = {
+                                'portfolio_metrics': portfolio_metrics,
+                                'prices': prices,
+                                'weights_dict': weights_dict,
+                                'mc_simulations': mc_simulations_data,
+                                'benchmarks': bench_data,
+                                'capital': capital,
+                                'selected_charts': selected_charts,
+                                'tickers': tickers
+                            }
+                            
+                            st.success(f"✅ Analysis complete! {len(selected_charts)} charts ready. Check the Results tab.")
+                        else:
+                            st.error("Could not fetch price data. Please check your tickers and try again.")
+                    except Exception as e:
+                        st.error(f"❌ Analysis failed: {str(e)}")
+                        import traceback
+                        st.code(traceback.format_exc())
     
     # ==================== TAB 4: ANALYSIS RESULTS ====================
     with tab4:
@@ -1094,24 +1145,36 @@ def main():
             st.info("👆 Set up your portfolio, select charts, and run the analysis to see results.")
         else:
             results = st.session_state.analysis_results
-            metrics = results['metrics']
+            portfolio_metrics = results['portfolio_metrics']
             selected = results.get('selected_charts', list(range(1, 25)))
+            capital = results['capital']
             
             st.markdown('<h2 class="section-header">📊 Portfolio Metrics</h2>', unsafe_allow_html=True)
             
+            # Calculer les métriques clés
+            port_returns = portfolio_metrics['port_ret_d']
+            cumulative_returns = (1 + port_returns).cumprod()
+            total_return = (cumulative_returns.iloc[-1] - 1) * 100
+            annual_return = portfolio_metrics['mu_a'].mean() * 100 if isinstance(portfolio_metrics['mu_a'], np.ndarray) else port_returns.mean() * 252 * 100
+            volatility = portfolio_metrics['vol_a'] * 100
+            sharpe = calculate_sharpe_ratio(port_returns.values, risk_free_rate=0.02)
+            max_dd = calculate_max_drawdown(cumulative_returns.values) * 100
+            var_95 = calculate_var(port_returns.values, 0.95) * capital
+            
+            # Afficher les métriques
             cols = st.columns(6)
             with cols[0]:
-                st.metric("Total Return", f"{metrics['total_return']:.2f}%")
+                st.metric("Total Return", f"{total_return:.2f}%")
             with cols[1]:
-                st.metric("Annual Return", f"{metrics['annual_return']:.2f}%")
+                st.metric("Annual Return", f"{annual_return:.2f}%")
             with cols[2]:
-                st.metric("Volatility", f"{metrics['volatility']:.2f}%")
+                st.metric("Volatility", f"{volatility:.2f}%")
             with cols[3]:
-                st.metric("Sharpe Ratio", f"{metrics['sharpe']:.2f}")
+                st.metric("Sharpe Ratio", f"{sharpe:.2f}")
             with cols[4]:
-                st.metric("Max Drawdown", f"{metrics['max_drawdown']:.2f}%")
+                st.metric("Max Drawdown", f"{max_dd:.2f}%")
             with cols[5]:
-                st.metric("VaR 95%", f"${metrics['var_95']:,.2f}")
+                st.metric("VaR 95%", f"${var_95:,.2f}")
             
             st.divider()
             
