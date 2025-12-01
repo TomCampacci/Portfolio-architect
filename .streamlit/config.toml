@@ -1,15 +1,118 @@
-[theme]
-primaryColor = "#e94560"
-backgroundColor = "#1a1a2e"
-secondaryBackgroundColor = "#16213e"
-textColor = "#ffffff"
-font = "sans serif"
+# =============================================
+# CONFIGURATION STREAMLIT - Portfolio Architect
+# =============================================
 
+# ===================== THEME COLORS =====================
+# Personnalisation des couleurs de l'application
+# Change ces valeurs pour modifier l'apparence
+
+[theme]
+# Couleur principale (boutons, liens, accents)
+primaryColor = "#e94560"           # Rouge/Rose vif
+
+# Couleur de fond principale
+backgroundColor = "#0f0f23"        # Bleu très foncé
+
+# Couleur de fond secondaire (cartes, sidebar)
+secondaryBackgroundColor = "#1a1a2e"  # Bleu foncé
+
+# Couleur du texte
+textColor = "#ffffff"              # Blanc
+
+# Police de caractères
+font = "sans serif"                # Options: "sans serif", "serif", "monospace"
+
+# Base de thème (optionnel)
+# base = "dark"                    # Options: "light", "dark"
+
+
+# ===================== AUTRES THÈMES PRÉDÉFINIS =====================
+# Décommente un des blocs ci-dessous pour changer de thème
+
+## THÈME 1: DARK MODERN (Actuel)
+# primaryColor = "#e94560"
+# backgroundColor = "#0f0f23"
+# secondaryBackgroundColor = "#1a1a2e"
+# textColor = "#ffffff"
+
+## THÈME 2: PROFESSIONAL BLUE
+# primaryColor = "#0066cc"
+# backgroundColor = "#0a0e27"
+# secondaryBackgroundColor = "#141b3d"
+# textColor = "#e0e0e0"
+
+## THÈME 3: FINANCE GREEN
+# primaryColor = "#00d26a"
+# backgroundColor = "#0a0f0a"
+# secondaryBackgroundColor = "#152515"
+# textColor = "#f0f0f0"
+
+## THÈME 4: PURPLE ELEGANCE
+# primaryColor = "#9b59b6"
+# backgroundColor = "#1a0a2e"
+# secondaryBackgroundColor = "#2e1a3d"
+# textColor = "#f8f8f8"
+
+## THÈME 5: ORANGE DYNAMIC
+# primaryColor = "#ff6b35"
+# backgroundColor = "#1a1a1a"
+# secondaryBackgroundColor = "#2d2d2d"
+# textColor = "#ffffff"
+
+
+# ===================== SERVER SETTINGS =====================
 [server]
+# Exécution en mode headless (sans interface GUI)
 headless = true
+
+# CORS (Cross-Origin Resource Sharing)
 enableCORS = false
+
+# Protection XSRF
 enableXsrfProtection = true
 
+# Port par défaut (optionnel)
+# port = 8501
+
+# Adresse (optionnel)
+# address = "localhost"
+
+
+# ===================== BROWSER SETTINGS =====================
 [browser]
+# Désactive la collecte de statistiques d'utilisation
 gatherUsageStats = false
+
+# Titre de la page (visible dans l'onglet du navigateur)
+# serverAddress = "localhost"
+
+# Port de serveur (si différent du port server)
+# serverPort = 8501
+
+
+# ===================== RUNNER SETTINGS =====================
+[runner]
+# Réexécution automatique lors des changements de fichiers
+# fastReruns = true
+
+# Timeout de post script (en secondes)
+# postScriptGC = true
+
+
+# ===================== LOGGER SETTINGS =====================
+[logger]
+# Niveau de log (debug, info, warning, error)
+# level = "info"
+
+# Format de message de log
+# messageFormat = "%(asctime)s %(message)s"
+
+
+# ===================== CLIENT SETTINGS =====================
+[client]
+# Afficher la toolbar en haut à droite
+# toolbarMode = "auto"  # Options: "auto", "developer", "viewer", "minimal"
+
+# Afficher le bouton "Made with Streamlit"
+# showErrorDetails = true
 
