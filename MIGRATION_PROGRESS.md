@@ -34,7 +34,7 @@
 
 ---
 
-## ⏳ ÉTAPE 2 : GÉNÉRATION DE GRAPHIQUES (EN COURS)
+## ✅ ÉTAPE 2 : GÉNÉRATION DE GRAPHIQUES (TERMINÉ)
 
 ### **Fichier à créer :** `app/charts.py`
 ### **Sources :**
@@ -50,44 +50,44 @@
 #### **Portfolio Charts (1-6)**
 | # | Graphique | Status | Source |
 |---|-----------|--------|--------|
-| 1 | Asset Allocation | ✅ Existant | streamlit_app.py |
-| 2 | Portfolio Value Distribution | ✅ Existant | streamlit_app.py |
-| 3 | Cumulative Returns | ✅ Existant | streamlit_app.py |
-| 4 | Daily Returns Distribution | ⏳ À porter | chart_portfolio.py |
-| 5 | Asset Correlation Heatmap | ✅ Existant | streamlit_app.py |
-| 6 | Rolling Volatility | ✅ Existant | streamlit_app.py |
+| 1 | Asset Allocation | ✅ Porté | app/charts.py |
+| 2 | Portfolio Value Distribution | ✅ Porté | app/charts.py |
+| 3 | Cumulative Returns | ✅ Porté | app/charts.py |
+| 4 | Daily Returns Distribution | ✅ Porté | app/charts.py |
+| 5 | Asset Correlation Heatmap | ✅ Porté | app/charts.py |
+| 6 | Rolling Volatility | ✅ Porté | app/charts.py |
 
 #### **Monte Carlo Charts (7-12)**
 | # | Graphique | Status | Source |
 |---|-----------|--------|--------|
-| 7 | MC Price Projections | ⚠️ Basique | chart_monte_carlo.py |
-| 8 | MC Returns Distribution | ⏳ À porter | chart_monte_carlo.py |
-| 9 | Value at Risk Analysis | ⏳ À porter | chart_monte_carlo.py |
-| 10 | Confidence Intervals | ⏳ À porter | chart_monte_carlo.py |
-| 11 | Risk-Adjusted Performance | ⏳ À porter | chart_monte_carlo.py |
-| 12 | Scenario Analysis | ⏳ À porter | chart_monte_carlo.py |
+| 7 | MC Price Projections | ✅ Porté | app/charts.py |
+| 8 | MC Returns Distribution | ✅ Porté | app/charts.py |
+| 9 | Value at Risk Analysis | ✅ Porté | app/charts.py |
+| 10 | Confidence Intervals | ✅ Porté | app/charts.py |
+| 11 | Risk-Adjusted Performance | ✅ Porté | app/charts.py |
+| 12 | Scenario Analysis | ✅ Porté | app/charts.py |
 
 #### **Risk Metrics Charts (13-18)**
 | # | Graphique | Status | Source |
 |---|-----------|--------|--------|
-| 13 | Sharpe Ratio Evolution | ⏳ À porter | chart_risk_metrics.py |
-| 14 | Maximum Drawdown | ⏳ À porter | chart_risk_metrics.py |
-| 15 | Risk-Return Scatter | ⏳ À porter | chart_risk_metrics.py |
-| 16 | Beta Analysis | ⏳ À porter | chart_risk_metrics.py |
-| 17 | VaR History | ⏳ À porter | chart_risk_metrics.py |
-| 18 | Conditional VaR | ⏳ À porter | chart_risk_metrics.py |
+| 13 | Sharpe Ratio Evolution | ✅ Porté | app/charts.py |
+| 14 | Maximum Drawdown | ✅ Porté | app/charts.py |
+| 15 | Risk-Return Scatter | ✅ Porté | app/charts.py |
+| 16 | Beta Analysis | ✅ Porté | app/charts.py |
+| 17 | VaR History | ✅ Porté | app/charts.py |
+| 18 | Conditional VaR | ✅ Porté | app/charts.py |
 
 #### **Market Analysis Charts (19-24)**
 | # | Graphique | Status | Source |
 |---|-----------|--------|--------|
-| 19 | Benchmark Comparison | ⏳ À porter | chart_benchmarks.py |
-| 20 | Relative Performance | ⏳ À porter | chart_benchmarks.py |
-| 21 | Sector Allocation | ⏳ À porter | chart_sector.py |
-| 22 | Geographic Exposure | ⏳ À porter | chart_sector.py |
-| 23 | Market Regime Analysis | ⏳ À porter | chart_regime.py |
-| 24 | Correlation with Markets | ⏳ À porter | chart_benchmarks.py |
+| 19 | Benchmark Comparison | ✅ Porté | app/charts.py |
+| 20 | Relative Performance | ✅ Porté | app/charts.py |
+| 21 | Sector Allocation | ✅ Porté | app/charts.py |
+| 22 | Geographic Exposure | ✅ Porté | app/charts.py |
+| 23 | Market Regime Analysis | ✅ Porté | app/charts.py |
+| 24 | Correlation with Markets | ✅ Porté | app/charts.py |
 
-**Progression : 6/24 = 25%**
+**Progression : 24/24 = 100% ✅**
 
 ---
 
@@ -138,11 +138,11 @@ scikit-learn>=1.3.0  # Pour Ledoit-Wolf covariance
 | Catégorie | Terminé | En cours | À faire | Total |
 |-----------|---------|----------|---------|-------|
 | **Calculs** | 17 | 0 | 0 | 17 |
-| **Graphiques** | 6 | 0 | 18 | 24 |
-| **Orchestration** | 0 | 0 | 1 | 1 |
-| **Total** | 23 | 0 | 19 | 42 |
+| **Graphiques** | 24 | 0 | 0 | 24 |
+| **Orchestration** | 0 | 1 | 0 | 1 |
+| **Total** | 41 | 1 | 0 | 42 |
 
-**Progression globale : 55% (23/42)**
+**Progression globale : 98% (41/42)** ⏳ Dernière étape : Intégration
 
 ---
 
@@ -174,5 +174,32 @@ Portfolio/
 
 ---
 
-*Dernière mise à jour : Décembre 2024*
+---
+
+## ✅ ÉTAPE 2 TERMINÉE - RÉSUMÉ
+
+### **Fichier créé :** `app/charts.py` (24 fonctions - 900+ lignes)
+
+**Tous les 24 graphiques sont maintenant disponibles en Plotly :**
+
+✅ **Portfolio (1-6)** - Allocation, value distribution, returns, correlation, volatility  
+✅ **Monte Carlo (7-12)** - Simulations, distributions, VaR, confidence intervals, scenarios  
+✅ **Risk Metrics (13-18)** - Sharpe evolution, drawdown, risk-return, beta, VaR history  
+✅ **Market Analysis (19-24)** - Benchmarks, relative performance, sectors, geography, regimes  
+
+**Mapping disponible :**
+```python
+from app.charts import CHART_FUNCTIONS, get_chart_function
+
+# Récupérer une fonction de graphique par numéro
+chart_func = get_chart_function(1)  # create_chart_1_allocation
+fig = chart_func(weights_series, capital)
+st.plotly_chart(fig)
+```
+
+**Prochaine étape :** Intégrer dans streamlit_app.py
+
+---
+
+*Dernière mise à jour : Décembre 2024 - Étape 2 complétée*
 
