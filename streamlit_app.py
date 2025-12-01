@@ -711,9 +711,21 @@ def main():
             
             portfolio_data = []
             
+            # Column headers
+            header_col1, header_col2, header_col3, header_col4 = st.columns([3, 1, 1, 2])
+            with header_col1:
+                st.markdown("**Asset**")
+            with header_col2:
+                st.markdown("**Type**")
+            with header_col3:
+                st.markdown("**Value**")
+            with header_col4:
+                st.markdown("**Status**")
+            
+            st.markdown("---")
+            
             for i in range(10):
-                st.markdown(f"**Position {i+1}**")
-                col1, col2, col3 = st.columns([3, 1, 2])
+                col1, col2, col3, col4 = st.columns([3, 1, 1, 2])
                 
                 with col1:
                     # Build selectbox options
@@ -767,25 +779,84 @@ def main():
                             ticker = ""
                 
                 with col2:
-                    # Weight input
-                    weight = st.number_input(
-                        f"Weight {i+1}",
-                        min_value=0.0, 
-                        max_value=100.0,
-                        value=0.0,
-                        step=5.0,
-                        key=f"weight_{i}",
+                    # Input type selector
+                    input_type = st.selectbox(
+                        f"Type {i+1}",
+                        options=["Percent %", "Currency $", "Shares"],
+                        key=f"input_type_{i}",
                         label_visibility="collapsed",
-                        format="%.1f"
+                        help="Select input type"
                     )
                 
                 with col3:
+                    # Value input (adapts based on type)
+                    if input_type == "Percent %":
+                        value_input = st.number_input(
+                            f"Value {i+1}",
+                            min_value=0.0,
+                            max_value=100.0,
+                            value=0.0,
+                            step=5.0,
+                            key=f"value_{i}",
+                            label_visibility="collapsed",
+                            format="%.1f"
+                        )
+                        weight = value_input  # Direct percentage
+                        
+                    elif input_type == "Currency $":
+                        value_input = st.number_input(
+                            f"Value {i+1}",
+                            min_value=0.0,
+                            max_value=float(capital),
+                            value=0.0,
+                            step=100.0,
+                            key=f"value_{i}",
+                            label_visibility="collapsed",
+                            format="%.0f"
+                        )
+                        # Calculate weight from currency amount
+                        weight = (value_input / capital * 100) if capital > 0 else 0.0
+                        
+                    else:  # Shares
+                        value_input = st.number_input(
+                            f"Value {i+1}",
+                            min_value=0.0,
+                            max_value=100000.0,
+                            value=0.0,
+                            step=1.0,
+                            key=f"value_{i}",
+                            label_visibility="collapsed",
+                            format="%.0f"
+                        )
+                        # Calculate weight from shares (need price)
+                        if ticker and value_input > 0:
+                            try:
+                                ticker_obj = yf.Ticker(ticker)
+                                current_price = ticker_obj.info.get('currentPrice') or ticker_obj.info.get('regularMarketPrice') or 0
+                                if current_price > 0:
+                                    amount = value_input * current_price
+                                    weight = (amount / capital * 100) if capital > 0 else 0.0
+                                else:
+                                    weight = 0.0
+                                    st.caption(f"⚠️ Price unavailable")
+                            except:
+                                weight = 0.0
+                                st.caption(f"⚠️ Price error")
+                        else:
+                            weight = 0.0
+                
+                with col4:
                     # Validation status
                     if ticker:
                         ticker_info = validate_and_get_ticker_info(ticker)
                         if ticker_info and ticker_info.get('valid'):
-                            name = ticker_info.get('name', '')[:20]
+                            name = ticker_info.get('name', '')[:18]
                             st.success(f"✓ {name}")
+                            
+                            # Show conversion info
+                            if weight > 0:
+                                amount = capital * weight / 100
+                                st.caption(f"💰 ${amount:,.0f} ({weight:.1f}%)")
                             
                             # Add to portfolio data (even if weight = 0, for live preview)
                             portfolio_data.append({
@@ -799,8 +870,9 @@ def main():
                     else:
                         st.caption("—")
                 
-                # Small spacer
-                st.markdown("<div style='margin-bottom: 8px;'></div>", unsafe_allow_html=True)
+                # Small spacer between rows
+                if i < 9:  # Don't add after last row
+                    st.markdown("<div style='margin-bottom: 4px;'></div>", unsafe_allow_html=True)
             
             st.divider()
             
