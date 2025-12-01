@@ -17,7 +17,7 @@ from plotly.subplots import make_subplots
 import requests
 
 # Import modules personnalisés
-from app.config import CHART_COLORS, CHART_DESCRIPTIONS
+from app.config import CHART_COLORS, CHART_DESCRIPTIONS, POPULAR_TICKERS, QUICK_SELECT_OPTIONS
 from app.data_fetcher import (
     validate_and_get_ticker_info as validate_ticker_new,
     search_tickers as search_tickers_new,
@@ -183,65 +183,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ===================== POPULAR TICKERS DATABASE =====================
-POPULAR_TICKERS = {
-    # US Tech
-    "AAPL": {"name": "Apple Inc.", "exchange": "NASDAQ"},
-    "MSFT": {"name": "Microsoft Corporation", "exchange": "NASDAQ"},
-    "GOOGL": {"name": "Alphabet Inc.", "exchange": "NASDAQ"},
-    "GOOG": {"name": "Alphabet Inc. Class C", "exchange": "NASDAQ"},
-    "AMZN": {"name": "Amazon.com Inc.", "exchange": "NASDAQ"},
-    "NVDA": {"name": "NVIDIA Corporation", "exchange": "NASDAQ"},
-    "META": {"name": "Meta Platforms Inc.", "exchange": "NASDAQ"},
-    "TSLA": {"name": "Tesla Inc.", "exchange": "NASDAQ"},
-    "NFLX": {"name": "Netflix Inc.", "exchange": "NASDAQ"},
-    "AMD": {"name": "Advanced Micro Devices", "exchange": "NASDAQ"},
-    "INTC": {"name": "Intel Corporation", "exchange": "NASDAQ"},
-    "CRM": {"name": "Salesforce Inc.", "exchange": "NYSE"},
-    "ADBE": {"name": "Adobe Inc.", "exchange": "NASDAQ"},
-    "PYPL": {"name": "PayPal Holdings", "exchange": "NASDAQ"},
-    "PLTR": {"name": "Palantir Technologies", "exchange": "NYSE"},
-    
-    # US Finance
-    "JPM": {"name": "JPMorgan Chase & Co.", "exchange": "NYSE"},
-    "V": {"name": "Visa Inc.", "exchange": "NYSE"},
-    "MA": {"name": "Mastercard Inc.", "exchange": "NYSE"},
-    "BAC": {"name": "Bank of America", "exchange": "NYSE"},
-    "GS": {"name": "Goldman Sachs", "exchange": "NYSE"},
-    "MS": {"name": "Morgan Stanley", "exchange": "NYSE"},
-    "BLK": {"name": "BlackRock Inc.", "exchange": "NYSE"},
-    
-    # US ETFs
-    "SPY": {"name": "SPDR S&P 500 ETF", "exchange": "NYSE"},
-    "QQQ": {"name": "Invesco QQQ Trust", "exchange": "NASDAQ"},
-    "VOO": {"name": "Vanguard S&P 500 ETF", "exchange": "NYSE"},
-    "VTI": {"name": "Vanguard Total Stock Market", "exchange": "NYSE"},
-    "IWM": {"name": "iShares Russell 2000", "exchange": "NYSE"},
-    "GLD": {"name": "SPDR Gold Shares", "exchange": "NYSE"},
-    "SLV": {"name": "iShares Silver Trust", "exchange": "NYSE"},
-    "TLT": {"name": "iShares 20+ Year Treasury", "exchange": "NASDAQ"},
-    
-    # European Stocks
-    "MC.PA": {"name": "LVMH", "exchange": "Euronext Paris"},
-    "OR.PA": {"name": "L'Oréal", "exchange": "Euronext Paris"},
-    "TTE.PA": {"name": "TotalEnergies", "exchange": "Euronext Paris"},
-    "SAN.PA": {"name": "Sanofi", "exchange": "Euronext Paris"},
-    "AIR.PA": {"name": "Airbus", "exchange": "Euronext Paris"},
-    "BNP.PA": {"name": "BNP Paribas", "exchange": "Euronext Paris"},
-    "SAP.DE": {"name": "SAP SE", "exchange": "XETRA"},
-    "SIE.DE": {"name": "Siemens AG", "exchange": "XETRA"},
-    "BMW.DE": {"name": "BMW AG", "exchange": "XETRA"},
-    "ASML.AS": {"name": "ASML Holding", "exchange": "Euronext Amsterdam"},
-    "SHEL.L": {"name": "Shell plc", "exchange": "London"},
-    "AZN.L": {"name": "AstraZeneca", "exchange": "London"},
-    "HSBA.L": {"name": "HSBC Holdings", "exchange": "London"},
-    
-    # European ETFs
-    "IWDA.AS": {"name": "iShares Core MSCI World", "exchange": "Euronext Amsterdam"},
-    "CSPX.L": {"name": "iShares Core S&P 500", "exchange": "London"},
-    "VUSA.L": {"name": "Vanguard S&P 500", "exchange": "London"},
-    "CW8.PA": {"name": "Amundi MSCI World", "exchange": "Euronext Paris"},
-    "EQQQ.L": {"name": "Invesco EQQQ Nasdaq-100", "exchange": "London"},
-}
+# POPULAR_TICKERS maintenant importé depuis app.config
 
 # ===================== SESSION STATE INITIALIZATION =====================
 if 'analysis_results' not in st.session_state:
@@ -298,158 +240,22 @@ def fetch_market_data():
     
     return data
 
+# ===================== WRAPPERS FOR COMPATIBILITY =====================
+# Ces fonctions appellent les nouvelles fonctions de app.data_fetcher
+
 def search_tickers(query):
-    """Search for tickers matching query with exchange info"""
-    if not query or len(query) < 1:
-        return []
-    
-    query_upper = query.upper()
-    results = []
-    
-    # Search in local database first - more reliable
-    for ticker, info in POPULAR_TICKERS.items():
-        if query_upper in ticker or query_upper in info['name'].upper():
-            results.append({
-                'symbol': ticker,
-                'name': info['name'],
-                'exchange': info['exchange']
-            })
-    
-    # Sort by relevance (starts with query first)
-    results.sort(key=lambda x: (not x['symbol'].startswith(query_upper), x['symbol']))
-    
-    # If not enough results, try Yahoo Finance search
-    if len(results) < 5:
-        try:
-            url = "https://query2.finance.yahoo.com/v1/finance/search"
-            params = {"q": query, "quotesCount": 10, "lang": "en-US"}
-            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-            resp = requests.get(url, params=params, headers=headers, timeout=5)
-            
-            if resp.status_code == 200:
-                data = resp.json()
-                for quote in data.get('quotes', []):
-                    symbol = quote.get('symbol', '')
-                    if symbol and symbol not in [r['symbol'] for r in results]:
-                        quote_type = quote.get('quoteType', '')
-                        if quote_type in ['EQUITY', 'ETF', 'INDEX', 'MUTUALFUND']:
-                            results.append({
-                                'symbol': symbol,
-                                'name': quote.get('shortname') or quote.get('longname') or symbol,
-                                'exchange': quote.get('exchDisp') or quote.get('exchange') or 'Unknown'
-                            })
-        except Exception as e:
-            # Silent fail - at least return local results
-            pass
-    
-    return results[:8]
+    """Wrapper for search_tickers_new"""
+    return search_tickers_new(query)
 
-@st.cache_data(ttl=120)
 def validate_and_get_ticker_info(symbol):
-    """Validate ticker and get detailed info including exchange"""
-    if not symbol or not symbol.strip():
-        return None
-    
-    symbol = symbol.strip().upper()
-    
-    # Check local database first
-    if symbol in POPULAR_TICKERS:
-        info = POPULAR_TICKERS[symbol]
-        return {
-            'valid': True,
-            'symbol': symbol,
-            'name': info['name'],
-            'exchange': info['exchange'],
-            'price': None
-        }
-    
-    # Try Yahoo Finance
-    try:
-        ticker = yf.Ticker(symbol)
-        info = ticker.info
-        
-        if info and info.get('regularMarketPrice'):
-            exchange = info.get('exchange', '')
-            exchange_map = {
-                'NMS': 'NASDAQ', 'NGM': 'NASDAQ', 'NCM': 'NASDAQ',
-                'NYQ': 'NYSE', 'PCX': 'NYSE',
-                'PAR': 'Euronext Paris', 'EPA': 'Euronext Paris',
-                'AMS': 'Euronext Amsterdam', 'EAM': 'Euronext Amsterdam',
-                'GER': 'XETRA', 'FRA': 'Frankfurt',
-                'LSE': 'London', 'LON': 'London',
-                'MIL': 'Milan', 'BIT': 'Milan'
-            }
-            exchange_display = exchange_map.get(exchange, exchange)
-            
-            return {
-                'valid': True,
-                'symbol': symbol,
-                'name': info.get('longName') or info.get('shortName') or symbol,
-                'exchange': exchange_display,
-                'price': info.get('regularMarketPrice'),
-                'currency': info.get('currency', 'USD')
-            }
-    except:
-        pass
-    
-    return {'valid': False, 'symbol': symbol}
+    """Wrapper for validate_ticker_new"""
+    return validate_ticker_new(symbol)
 
-@st.cache_data(ttl=3600)
 def fetch_historical_prices(tickers, years=5):
-    """Fetch historical prices for analysis"""
-    if not tickers:
-        return None
-    
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=years * 365)
-    
-    try:
-        data = yf.download(tickers, start=start_date, end=end_date, progress=False, auto_adjust=True)
-        if isinstance(data.columns, pd.MultiIndex):
-            prices = data['Close']
-        else:
-            prices = pd.DataFrame(data['Close'])
-            prices.columns = [tickers[0]] if isinstance(tickers, list) and len(tickers) == 1 else [tickers]
-        return prices.dropna()
-    except Exception as e:
-        st.error(f"Error fetching data: {e}")
-        return None
+    """Wrapper for fetch_prices_new with years conversion"""
+    return fetch_prices_new(tickers, period=f"{years}y")
 
-def compute_portfolio_metrics(prices, weights, capital=10000):
-    """Compute portfolio metrics"""
-    returns = prices.pct_change().dropna()
-    ann_factor = 252
-    
-    weight_array = np.array(list(weights.values()))
-    portfolio_returns = (returns * weight_array).sum(axis=1)
-    
-    cumulative = (1 + portfolio_returns).cumprod()
-    portfolio_value = capital * cumulative
-    
-    total_return = (cumulative.iloc[-1] - 1) * 100
-    annual_return = ((1 + total_return/100) ** (ann_factor / len(returns)) - 1) * 100
-    volatility = portfolio_returns.std() * np.sqrt(ann_factor) * 100
-    
-    rf = 0.04
-    sharpe = (annual_return/100 - rf) / (volatility/100) if volatility > 0 else 0
-    
-    running_max = cumulative.cummax()
-    drawdowns = (cumulative - running_max) / running_max
-    max_drawdown = drawdowns.min() * 100
-    
-    var_95 = np.percentile(portfolio_returns, 5) * capital
-    
-    return {
-        'total_return': total_return,
-        'annual_return': annual_return,
-        'volatility': volatility,
-        'sharpe': sharpe,
-        'max_drawdown': max_drawdown,
-        'var_95': var_95,
-        'portfolio_value': portfolio_value,
-        'daily_returns': portfolio_returns,
-        'cumulative_returns': cumulative
-    }
+# ===================== LIVE PREVIEW CHART (for Portfolio Setup tab) =====================
 
 def create_preview_allocation_chart(portfolio_data, capital):
     """Create compact live preview allocation chart"""
@@ -494,152 +300,7 @@ def create_preview_allocation_chart(portfolio_data, capital):
     
     return fig
 
-def create_allocation_chart(weights):
-    """Create portfolio allocation pie chart"""
-    labels = list(weights.keys())
-    values = [v * 100 for v in weights.values()]
-    
-    fig = go.Figure(data=[go.Pie(
-        labels=labels, values=values, hole=0.4,
-        textinfo='label+percent',
-        marker=dict(colors=px.colors.qualitative.Set3)
-    )])
-    
-    fig.update_layout(
-        title="Portfolio Allocation",
-        template="plotly_dark",
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='white')
-    )
-    return fig
-
-def create_performance_chart(portfolio_value, benchmarks_data=None):
-    """Create performance comparison chart"""
-    fig = go.Figure()
-    
-    fig.add_trace(go.Scatter(
-        x=portfolio_value.index, y=portfolio_value.values,
-        name='Portfolio', line=dict(color='#e94560', width=3)
-    ))
-    
-    if benchmarks_data is not None:
-        colors = ['#00d26a', '#ffa502', '#3742fa', '#ff6b6b', '#1e90ff']
-        for i, (name, values) in enumerate(benchmarks_data.items()):
-            fig.add_trace(go.Scatter(
-                x=values.index, y=values.values, name=name,
-                line=dict(color=colors[i % len(colors)], width=2, dash='dash')
-            ))
-    
-    fig.update_layout(
-        title="Portfolio Performance vs Benchmarks",
-        xaxis_title="Date", yaxis_title="Value ($)",
-        template="plotly_dark",
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='white'),
-        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
-        hovermode='x unified'
-    )
-    return fig
-
-def create_correlation_heatmap(prices):
-    """Create correlation heatmap"""
-    corr = prices.pct_change().dropna().corr()
-    
-    fig = go.Figure(data=go.Heatmap(
-        z=corr.values, x=corr.columns, y=corr.columns,
-        colorscale='RdBu', zmid=0,
-        text=np.round(corr.values, 2),
-        texttemplate='%{text}', textfont={"size": 10}
-    ))
-    
-    fig.update_layout(
-        title="Asset Correlation Matrix",
-        template="plotly_dark",
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='white')
-    )
-    return fig
-
-def create_volatility_chart(prices, weights):
-    """Create volatility contribution chart"""
-    returns = prices.pct_change().dropna()
-    volatilities = returns.std() * np.sqrt(252) * 100
-    
-    tickers = list(weights.keys())
-    vols = [volatilities[t] if t in volatilities.index else 0 for t in tickers]
-    weight_vals = [weights[t] * 100 for t in tickers]
-    
-    fig = go.Figure()
-    fig.add_trace(go.Bar(name='Volatility (%)', x=tickers, y=vols, marker_color='#e94560'))
-    fig.add_trace(go.Bar(name='Weight (%)', x=tickers, y=weight_vals, marker_color='#00d26a'))
-    
-    fig.update_layout(
-        title="Asset Volatility vs Weight",
-        xaxis_title="Asset", yaxis_title="Percentage (%)",
-        barmode='group', template="plotly_dark",
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='white')
-    )
-    return fig
-
-def run_monte_carlo(metrics, capital, n_simulations=1000, n_days=252):
-    """Run Monte Carlo simulation"""
-    daily_returns = metrics['daily_returns']
-    mu = daily_returns.mean()
-    sigma = daily_returns.std()
-    
-    simulations = np.zeros((n_days, n_simulations))
-    simulations[0] = capital
-    
-    for t in range(1, n_days):
-        random_returns = np.random.normal(mu, sigma, n_simulations)
-        simulations[t] = simulations[t-1] * (1 + random_returns)
-    
-    return simulations
-
-def create_monte_carlo_chart(simulations, capital):
-    """Create Monte Carlo simulation chart"""
-    fig = go.Figure()
-    
-    n_paths = min(100, simulations.shape[1])
-    for i in range(n_paths):
-        fig.add_trace(go.Scatter(
-            x=list(range(simulations.shape[0])),
-            y=simulations[:, i],
-            mode='lines',
-            line=dict(width=0.5, color='rgba(233, 69, 96, 0.1)'),
-            showlegend=False
-        ))
-    
-    percentiles = [5, 50, 95]
-    colors = ['#ff4757', '#00d26a', '#3742fa']
-    names = ['5th Percentile (Worst)', 'Median', '95th Percentile (Best)']
-    
-    for i, p in enumerate(percentiles):
-        pct_line = np.percentile(simulations, p, axis=1)
-        fig.add_trace(go.Scatter(
-            x=list(range(len(pct_line))), y=pct_line,
-            mode='lines', name=names[i],
-            line=dict(width=2, color=colors[i])
-        ))
-    
-    fig.add_hline(y=capital, line_dash="dash", line_color="white", 
-                  annotation_text=f"Initial: ${capital:,.0f}")
-    
-    fig.update_layout(
-        title=f"Monte Carlo Simulation (1 Year, {simulations.shape[1]} paths)",
-        xaxis_title="Trading Days", yaxis_title="Portfolio Value ($)",
-        template="plotly_dark",
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='white'),
-        showlegend=True
-    )
-    return fig
+# Anciennes fonctions supprimées - Maintenant dans app/charts.py
 
 # ===================== MAIN APPLICATION =====================
 
@@ -712,21 +373,8 @@ def main():
             st.markdown('<h2 class="section-header">💼 Portfolio Positions</h2>', unsafe_allow_html=True)
             st.info("Enter ticker symbols (e.g., AAPL, NVDA, MC.PA) and their weights.")
             
-            # Build popular tickers list for quick access
-            popular_options = [
-                ("", "— Select or type to search —"),
-                ("AAPL", "Apple Inc."),
-                ("MSFT", "Microsoft Corporation"),
-                ("GOOGL", "Alphabet Inc."),
-                ("NVDA", "NVIDIA Corporation"),
-                ("TSLA", "Tesla Inc."),
-                ("META", "Meta Platforms"),
-                ("AMZN", "Amazon.com"),
-                ("SPY", "SPDR S&P 500 ETF"),
-                ("QQQ", "Invesco QQQ Trust"),
-                ("MC.PA", "LVMH (Euronext Paris)"),
-                ("OR.PA", "L'Oréal (Euronext Paris)"),
-            ]
+            # Utiliser les options depuis app.config
+            popular_options = QUICK_SELECT_OPTIONS
             
             portfolio_data = []
             
@@ -1178,83 +826,167 @@ def main():
             
             st.divider()
             
-            # Show charts based on selection
-            if 1 in selected or 2 in selected:
-                col1, col2 = st.columns(2)
-                if 1 in selected:
-                    with col1:
-                        st.markdown("### 1. Portfolio Allocation")
-                        fig_alloc = create_allocation_chart(results['weights'])
-                        st.plotly_chart(fig_alloc, use_container_width=True)
-                if 2 in selected:
-                    with col2:
-                        st.markdown("### 2. Correlation Matrix")
-                        fig_corr = create_correlation_heatmap(results['prices'])
-                        st.plotly_chart(fig_corr, use_container_width=True)
+            # Préparer les données pour les graphiques
+            prices = results['prices']
+            w_series = portfolio_metrics['w_series']
+            mc_sims = results.get('mc_simulations')
+            benchmarks = results.get('benchmarks', {})
+            tickers = results['tickers']
             
-            if 4 in selected:
-                st.markdown("### 4. Performance vs Benchmarks")
-                fig_perf = create_performance_chart(metrics['portfolio_value'], results['benchmarks'])
-                st.plotly_chart(fig_perf, use_container_width=True)
+            # Afficher les graphiques sélectionnés
+            st.markdown('<h2 class="section-header">📈 Generated Charts</h2>', unsafe_allow_html=True)
             
-            if 3 in selected:
-                st.markdown("### 3. Risk Contribution (Volatility)")
-                fig_vol = create_volatility_chart(results['prices'], results['weights'])
-                st.plotly_chart(fig_vol, use_container_width=True)
-            
-            # Monte Carlo charts
-            mc_charts = [c for c in [7, 8, 9, 10, 11, 12] if c in selected]
-            if mc_charts:
-                st.markdown('<h2 class="section-header">🎲 Monte Carlo Simulation</h2>', unsafe_allow_html=True)
+            for chart_num in sorted(selected):
+                try:
+                    chart_func = get_chart_function(chart_num)
+                    if not chart_func:
+                        st.warning(f"Chart {chart_num} function not found.")
+                        continue
+                    
+                    st.markdown(f"### {chart_num}. {CHART_NAMES.get(chart_num, f'Chart {chart_num}')}")
+                    
+                    # Portfolio Charts (1-6)
+                    if chart_num == 1:
+                        fig = chart_func(w_series, capital)
+                    
+                    elif chart_num == 2:
+                        fig = chart_func(w_series, capital)
+                    
+                    elif chart_num == 3:
+                        fig = chart_func(port_returns, prices, tickers)
+                    
+                    elif chart_num == 4:
+                        fig = chart_func(port_returns)
+                    
+                    elif chart_num == 5:
+                        fig = chart_func(portfolio_metrics['corr'])
+                    
+                    elif chart_num == 6:
+                        fig = chart_func(port_returns, window=252)
+                    
+                    # Monte Carlo Charts (7-12)
+                    elif chart_num in range(7, 13):
+                        if mc_sims is None:
+                            st.warning("Monte Carlo simulations required. Please select MC charts before running analysis.")
+                            continue
+                        
+                        if chart_num == 7:
+                            fig = chart_func(mc_sims, capital, n_display=1000)
+                        elif chart_num == 8:
+                            fig = chart_func(mc_sims)
+                        elif chart_num == 9:
+                            fig = chart_func(mc_sims, confidence_levels=[0.95, 0.99])
+                        elif chart_num == 10:
+                            fig = chart_func(mc_sims)
+                        elif chart_num == 11:
+                            fig = chart_func(mc_sims, risk_free_rate=0.02)
+                        elif chart_num == 12:
+                            fig = chart_func(mc_sims, capital)
+                    
+                    # Risk Metrics Charts (13-18)
+                    elif chart_num == 13:
+                        fig = chart_func(port_returns, window=252, risk_free_rate=0.02)
+                    
+                    elif chart_num == 14:
+                        fig = chart_func(port_returns)
+                    
+                    elif chart_num == 15:
+                        fig = chart_func(portfolio_metrics, benchmarks)
+                    
+                    elif chart_num == 16:
+                        if not benchmarks:
+                            st.warning("No benchmark selected. Please add a benchmark for beta analysis.")
+                            continue
+                        bench_name = list(benchmarks.keys())[0]
+                        bench_returns = benchmarks[bench_name]['returns']
+                        fig = chart_func(port_returns, bench_returns)
+                    
+                    elif chart_num == 17:
+                        fig = chart_func(port_returns, window=252, confidence=0.95)
+                    
+                    elif chart_num == 18:
+                        fig = chart_func(port_returns, confidence=0.95)
+                    
+                    # Market Analysis Charts (19-24)
+                    elif chart_num == 19:
+                        if not benchmarks:
+                            st.warning("No benchmark selected for comparison.")
+                            continue
+                        bench_name = list(benchmarks.keys())[0]
+                        bench_cumul = benchmarks[bench_name]['cumulative'] * capital
+                        fig = chart_func(cumulative_returns * capital, bench_cumul, bench_name)
+                    
+                    elif chart_num == 20:
+                        if not benchmarks:
+                            st.warning("No benchmark selected for relative performance.")
+                            continue
+                        bench_name = list(benchmarks.keys())[0]
+                        bench_returns = benchmarks[bench_name]['returns']
+                        fig = chart_func(port_returns, bench_returns, bench_name)
+                    
+                    elif chart_num == 21:
+                        # Sector mapping simple
+                        tech_stocks = ["AAPL", "MSFT", "GOOGL", "GOOG", "NVDA", "AMD", "INTC", "META", "NFLX"]
+                        finance_stocks = ["JPM", "V", "MA", "BAC", "GS", "MS", "BLK"]
+                        sector_map = {}
+                        for t in tickers:
+                            if t in tech_stocks:
+                                sector_map[t] = "Technology"
+                            elif t in finance_stocks:
+                                sector_map[t] = "Finance"
+                            elif "SPY" in t or "QQQ" in t or "VOO" in t:
+                                sector_map[t] = "ETF"
+                            else:
+                                sector_map[t] = "Other"
+                        fig = chart_func(w_series, sector_map)
+                    
+                    elif chart_num == 22:
+                        # Geographic mapping
+                        country_map = {}
+                        for t in tickers:
+                            if ".PA" in t:
+                                country_map[t] = "France"
+                            elif ".DE" in t:
+                                country_map[t] = "Germany"
+                            elif ".AS" in t:
+                                country_map[t] = "Netherlands"
+                            else:
+                                country_map[t] = "USA"
+                        fig = chart_func(w_series, country_map)
+                    
+                    elif chart_num == 23:
+                        fig = chart_func(port_returns, window=60)
+                    
+                    elif chart_num == 24:
+                        if not benchmarks:
+                            st.warning("No benchmark selected for market correlation.")
+                            continue
+                        market_indices = {name: data['returns'] for name, data in benchmarks.items()}
+                        fig = chart_func(port_returns, market_indices)
+                    
+                    # Afficher le graphique
+                    st.plotly_chart(fig, use_container_width=True)
+                    st.markdown("---")
                 
-                mc = results['mc_results']
-                final_values = mc[-1, :]
-                
-                cols = st.columns(4)
-                with cols[0]:
-                    st.metric("5th Percentile", f"${np.percentile(final_values, 5):,.0f}")
-                with cols[1]:
-                    st.metric("Median", f"${np.percentile(final_values, 50):,.0f}")
-                with cols[2]:
-                    st.metric("95th Percentile", f"${np.percentile(final_values, 95):,.0f}")
-                with cols[3]:
-                    prob_profit = (final_values > results['capital']).mean() * 100
-                    st.metric("Probability of Profit", f"{prob_profit:.1f}%")
-                
-                fig_mc = create_monte_carlo_chart(mc, results['capital'])
-                st.plotly_chart(fig_mc, use_container_width=True)
-            
-            # Risk metrics
-            risk_charts = [c for c in [13, 14, 15, 16, 17] if c in selected]
-            if risk_charts:
-                st.markdown('<h2 class="section-header">⚠️ Risk Metrics</h2>', unsafe_allow_html=True)
-                
-                cols = st.columns(len(risk_charts))
-                for i, chart_num in enumerate(risk_charts):
-                    with cols[i]:
-                        if chart_num == 13:
-                            st.metric("VaR 95%", f"${metrics['var_95']:,.2f}")
-                        elif chart_num == 14:
-                            es = np.percentile(metrics['daily_returns'], 5) * results['capital'] * 1.5
-                            st.metric("Expected Shortfall", f"${es:,.2f}")
-                        elif chart_num == 16:
-                            calmar = metrics['annual_return'] / abs(metrics['max_drawdown']) if metrics['max_drawdown'] != 0 else 0
-                            st.metric("Calmar Ratio", f"{calmar:.2f}")
-                        elif chart_num == 17:
-                            st.metric("Sharpe Ratio", f"{metrics['sharpe']:.2f}")
+                except Exception as e:
+                    st.error(f"❌ Error generating chart {chart_num}: {str(e)}")
+                    with st.expander("Show error details"):
+                        import traceback
+                        st.code(traceback.format_exc())
             
             st.divider()
             st.markdown('<h2 class="section-header">📥 Export Results</h2>', unsafe_allow_html=True)
             
             summary_df = pd.DataFrame({
-                'Metric': ['Total Return', 'Annual Return', 'Volatility', 'Sharpe Ratio', 'Max Drawdown', 'VaR 95%'],
+                'Metric': ['Total Return', 'Annual Return', 'Volatility', 'Sharpe Ratio', 'Max Drawdown', 'VaR 95%', 'CVaR 95%'],
                 'Value': [
-                    f"{metrics['total_return']:.2f}%",
-                    f"{metrics['annual_return']:.2f}%",
-                    f"{metrics['volatility']:.2f}%",
-                    f"{metrics['sharpe']:.2f}",
-                    f"{metrics['max_drawdown']:.2f}%",
-                    f"${metrics['var_95']:,.2f}"
+                    f"{total_return:.2f}%",
+                    f"{annual_return:.2f}%",
+                    f"{volatility:.2f}%",
+                    f"{sharpe:.2f}",
+                    f"{max_dd:.2f}%",
+                    f"${var_95:,.2f}",
+                    f"${calculate_expected_shortfall(port_returns.values, 0.95) * capital:,.2f}"
                 ]
             })
             
