@@ -359,7 +359,7 @@ def main():
         
         # Afficher l'heure de dernière mise à jour
         current_time = datetime.now().strftime("%H:%M:%S")
-        st.caption(f"🟢 Live | Updated: {current_time} | Auto-refresh every {MARKET_DATA_REFRESH_INTERVAL}s")
+        st.caption(f"🟢 Live Data | Last updated: {current_time} | Data cached for {MARKET_DATA_REFRESH_INTERVAL}s")
         
         with st.spinner("Fetching market data..."):
             market_data = fetch_market_data()
@@ -396,11 +396,6 @@ def main():
                     st.metric(label=name, value=f"${data['price']:,.2f}", delta=f"{data['change']:+.2f}%")
         else:
             st.warning("No commodity data available at the moment.")
-        
-        # Auto-refresh automatique
-        import time
-        time.sleep(MARKET_DATA_REFRESH_INTERVAL)
-        st.rerun()
     
     # ==================== TAB 2: PORTFOLIO SETUP ====================
     with tab2:
