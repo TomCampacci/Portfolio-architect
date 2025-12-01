@@ -6,7 +6,7 @@ Gère : validation tickers, recherche, récupération prix historiques
 import yfinance as yf
 import requests
 import streamlit as st
-from .config import POPULAR_TICKERS, YAHOO_FINANCE_TIMEOUT, MAX_SEARCH_RESULTS, CACHE_TTL_SECONDS
+from .config import POPULAR_TICKERS, YAHOO_FINANCE_TIMEOUT, MAX_SEARCH_RESULTS, CACHE_TTL_SECONDS, MARKET_DATA_CACHE_TTL
 
 # ===================== TICKER VALIDATION =====================
 
@@ -164,13 +164,14 @@ def get_current_price(symbol):
 
 # ===================== MARKET DATA =====================
 
-@st.cache_data(ttl=CACHE_TTL_SECONDS)
+@st.cache_data(ttl=MARKET_DATA_CACHE_TTL)
 def fetch_market_data():
     """
     Récupère les données de marché actuelles (forex, indices, commodités)
+    avec prix et variation % sur 1 jour
     
     Returns:
-        dict: {'forex': {}, 'indexes': {}, 'commodities': {}}
+        dict: {'forex': {name: {'price': float, 'change': float}}, ...}
     """
     data = {'forex': {}, 'indexes': {}, 'commodities': {}}
     
@@ -192,28 +193,42 @@ def fetch_market_data():
         'CL=F': 'Crude Oil', 'BTC-USD': 'Bitcoin'
     }
     
-    # Fetch all at once
+    # Fetch all at once avec 2 jours pour calculer la variation
     all_symbols = {**forex_pairs, **indexes, **commodities}
     try:
-        tickers_data = yf.download(list(all_symbols.keys()), period="1d", progress=False)
+        tickers_data = yf.download(list(all_symbols.keys()), period="5d", progress=False)
+        
+        # Process each category
         for symbol, name in forex_pairs.items():
             try:
-                price = tickers_data['Close'][symbol].iloc[-1]
-                data['forex'][name] = price
+                closes = tickers_data['Close'][symbol].dropna()
+                if len(closes) >= 2:
+                    current = closes.iloc[-1]
+                    previous = closes.iloc[-2]
+                    change = ((current - previous) / previous) * 100
+                    data['forex'][name] = {'price': current, 'change': change}
             except:
                 pass
         
         for symbol, name in indexes.items():
             try:
-                price = tickers_data['Close'][symbol].iloc[-1]
-                data['indexes'][name] = price
+                closes = tickers_data['Close'][symbol].dropna()
+                if len(closes) >= 2:
+                    current = closes.iloc[-1]
+                    previous = closes.iloc[-2]
+                    change = ((current - previous) / previous) * 100
+                    data['indexes'][name] = {'price': current, 'change': change}
             except:
                 pass
         
         for symbol, name in commodities.items():
             try:
-                price = tickers_data['Close'][symbol].iloc[-1]
-                data['commodities'][name] = price
+                closes = tickers_data['Close'][symbol].dropna()
+                if len(closes) >= 2:
+                    current = closes.iloc[-1]
+                    previous = closes.iloc[-2]
+                    change = ((current - previous) / previous) * 100
+                    data['commodities'][name] = {'price': current, 'change': change}
             except:
                 pass
     except:

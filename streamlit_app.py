@@ -17,12 +17,16 @@ from plotly.subplots import make_subplots
 import requests
 
 # Import modules personnalisés
-from app.config import CHART_COLORS, CHART_DESCRIPTIONS, POPULAR_TICKERS, QUICK_SELECT_OPTIONS
+from app.config import (
+    CHART_COLORS, CHART_DESCRIPTIONS, POPULAR_TICKERS, 
+    QUICK_SELECT_OPTIONS, MARKET_DATA_REFRESH_INTERVAL
+)
 from app.data_fetcher import (
     validate_and_get_ticker_info as validate_ticker_new,
     search_tickers as search_tickers_new,
     fetch_historical_prices as fetch_prices_new,
-    get_current_price
+    get_current_price,
+    fetch_market_data
 )
 from app.calculations import (
     compute_portfolio_metrics,
@@ -350,32 +354,65 @@ def main():
     
     # ==================== TAB 1: MARKET OVERVIEW ====================
     with tab1:
-        st.markdown('<h2 class="section-header">💱 Live Market Data</h2>', unsafe_allow_html=True)
+        # Header avec bouton refresh et toggle auto-refresh
+        header_col1, header_col2, header_col3 = st.columns([2, 1, 1])
+        with header_col1:
+            st.markdown('<h2 class="section-header">💱 Live Market Data</h2>', unsafe_allow_html=True)
+        with header_col2:
+            auto_refresh_enabled = st.checkbox("🔄 Auto-refresh (5s)", value=True, key="auto_refresh_market")
+        with header_col3:
+            if st.button("⚡ Refresh Now", use_container_width=True):
+                st.cache_data.clear()
+                st.rerun()
+        
+        # Afficher l'heure de dernière mise à jour
+        current_time = datetime.now().strftime("%H:%M:%S")
+        if auto_refresh_enabled:
+            st.caption(f"🟢 Live Mode | Last updated: {current_time} | Auto-refresh every {MARKET_DATA_REFRESH_INTERVAL}s")
+        else:
+            st.caption(f"⚪ Manual Mode | Last updated: {current_time}")
         
         with st.spinner("Fetching market data..."):
             market_data = fetch_market_data()
         
+        st.divider()
+        
         st.subheader("📊 Major Indexes")
-        cols = st.columns(3)
-        for i, (name, data) in enumerate(market_data.get('indexes', {}).items()):
-            with cols[i % 3]:
-                st.metric(label=name, value=f"{data['price']:,.2f}", delta=f"{data['change']:+.2f}%")
+        if market_data.get('indexes'):
+            cols = st.columns(3)
+            for i, (name, data) in enumerate(market_data.get('indexes', {}).items()):
+                with cols[i % 3]:
+                    st.metric(label=name, value=f"{data['price']:,.2f}", delta=f"{data['change']:+.2f}%")
+        else:
+            st.warning("No index data available at the moment.")
         
         st.divider()
         
         st.subheader("💱 Forex Rates")
-        cols = st.columns(4)
-        for i, (name, data) in enumerate(market_data.get('forex', {}).items()):
-            with cols[i % 4]:
-                st.metric(label=name, value=f"{data['price']:.4f}", delta=f"{data['change']:+.2f}%")
+        if market_data.get('forex'):
+            cols = st.columns(4)
+            for i, (name, data) in enumerate(market_data.get('forex', {}).items()):
+                with cols[i % 4]:
+                    st.metric(label=name, value=f"{data['price']:.4f}", delta=f"{data['change']:+.2f}%")
+        else:
+            st.warning("No forex data available at the moment.")
         
         st.divider()
         
         st.subheader("🏆 Commodities")
-        cols = st.columns(3)
-        for i, (name, data) in enumerate(market_data.get('commodities', {}).items()):
-            with cols[i % 3]:
-                st.metric(label=name, value=f"${data['price']:,.2f}", delta=f"{data['change']:+.2f}%")
+        if market_data.get('commodities'):
+            cols = st.columns(3)
+            for i, (name, data) in enumerate(market_data.get('commodities', {}).items()):
+                with cols[i % 3]:
+                    st.metric(label=name, value=f"${data['price']:,.2f}", delta=f"{data['change']:+.2f}%")
+        else:
+            st.warning("No commodity data available at the moment.")
+        
+        # Auto-refresh mechanism
+        if auto_refresh_enabled:
+            import time
+            time.sleep(MARKET_DATA_REFRESH_INTERVAL)
+            st.rerun()
     
     # ==================== TAB 2: PORTFOLIO SETUP ====================
     with tab2:

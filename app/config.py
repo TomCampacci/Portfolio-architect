@@ -114,5 +114,7 @@ DEFAULT_VAR_CONFIDENCE = 0.95
 
 YAHOO_FINANCE_TIMEOUT = 5
 MAX_SEARCH_RESULTS = 10
-CACHE_TTL_SECONDS = 300  # 5 minutes
+CACHE_TTL_SECONDS = 120  # 2 minutes pour les données générales
+MARKET_DATA_CACHE_TTL = 5  # 5 secondes pour live market data
+MARKET_DATA_REFRESH_INTERVAL = 5  # Auto-refresh toutes les 5 secondes
 
