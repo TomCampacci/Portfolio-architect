@@ -687,6 +687,8 @@ def main():
                 
                 with col3:
                     # Value input (adapts based on type)
+                    value_base = 0.0  # Value in base currency
+                    
                     if input_type == "%":
                         value_input = st.number_input(
                             f"Value {i+1}",
@@ -699,19 +701,21 @@ def main():
                             format="%.1f"
                         )
                         weight = value_input  # Direct percentage
+                        value_base = capital * value_input / 100 if capital > 0 else value_input * 100  # Estimate
                         
                     elif input_type == "$":
                         value_input = st.number_input(
                             f"Value {i+1}",
                             min_value=0.0,
-                            max_value=float(capital),
+                            max_value=1000000.0,
                             value=0.0,
                             step=100.0,
                             key=f"value_{i}",
                             label_visibility="collapsed",
                             format="%.0f"
                         )
-                        # Calculate weight from currency amount
+                        value_base = value_input
+                        # Weight will be calculated later for progressive mode
                         weight = (value_input / capital * 100) if capital > 0 else 0.0
                         
                     else:  # Shares
@@ -725,22 +729,23 @@ def main():
                             label_visibility="collapsed",
                             format="%.0f"
                         )
-                        # Calculate weight from shares (need price)
+                        # Calculate value from shares (need price)
                         if ticker and value_input > 0:
                             try:
                                 ticker_obj = yf.Ticker(ticker)
                                 current_price = ticker_obj.info.get('currentPrice') or ticker_obj.info.get('regularMarketPrice') or 0
                                 if current_price > 0:
-                                    amount = value_input * current_price
-                                    weight = (amount / capital * 100) if capital > 0 else 0.0
+                                    value_base = value_input * current_price
+                                    weight = (value_base / capital * 100) if capital > 0 else 0.0
                                 else:
                                     weight = 0.0
-                                    st.caption(f"⚠️ Price unavailable")
+                                    value_base = 0.0
                             except:
                                 weight = 0.0
-                                st.caption(f"⚠️ Price error")
+                                value_base = 0.0
                         else:
                             weight = 0.0
+                            value_base = 0.0
                 
                 with col4:
                     # Validation status (simple checkmark only)
@@ -749,10 +754,13 @@ def main():
                         if ticker_info and ticker_info.get('valid'):
                             st.markdown('<p style="color: #00875A; font-size: 1.5rem; margin: 0;">✓</p>', unsafe_allow_html=True)
                             
-                            # Add to portfolio data
+                            # Add to portfolio data with value_base
                             portfolio_data.append({
                                 'ticker': ticker,
                                 'weight': weight,
+                                'value_base': value_base,
+                                'input_type': input_type,
+                                'input_value': value_input,
                                 'name': ticker_info.get('name', ticker),
                                 'exchange': ticker_info.get('exchange', '')
                             })
@@ -767,17 +775,40 @@ def main():
             
             st.divider()
             
+            # Recalculate weights for Progressive mode
+            if portfolio_mode == "Progressive Build" and portfolio_data:
+                # Calculate total value from all positions
+                total_value = sum([p.get('value_base', 0) for p in portfolio_data if p.get('value_base', 0) > 0])
+                
+                if total_value > 0:
+                    # Recalculate weights based on value proportions
+                    for p in portfolio_data:
+                        if p.get('value_base', 0) > 0:
+                            p['weight'] = (p['value_base'] / total_value) * 100
+                        else:
+                            p['weight'] = 0.0
+            
             # Weight Summary
             total_weight = sum([p['weight'] for p in portfolio_data])
-            if total_weight > 0:
-                if abs(total_weight - 100) < 0.01:
-                    st.success(f"✅ Total Weight: {total_weight:.2f}%")
-                elif total_weight > 100:
-                    st.error(f"⚠️ Total Weight: {total_weight:.2f}% (exceeds 100%)")
+            
+            # Display summary based on mode
+            if portfolio_mode == "Fixed Capital":
+                if total_weight > 0:
+                    if abs(total_weight - 100) < 0.01:
+                        st.success(f"Total Weight: {total_weight:.2f}%")
+                    elif total_weight > 100:
+                        st.error(f"Total Weight: {total_weight:.2f}% (exceeds 100%)")
+                    else:
+                        st.warning(f"Total Weight: {total_weight:.2f}% (need {100-total_weight:.1f}% more)")
                 else:
-                    st.warning(f"⚠️ Total Weight: {total_weight:.2f}% (need {100-total_weight:.1f}% more)")
-            else:
-                st.info("Add tickers with weights to see your allocation.")
+                    st.info("Add tickers with weights to see your allocation.")
+            else:  # Progressive Build
+                total_value = sum([p.get('value_base', 0) for p in portfolio_data])
+                if total_value > 0:
+                    currency_sym = CURRENCY_SYMBOLS.get(currency, currency)
+                    st.success(f"Portfolio Value: {currency_sym}{total_value:,.0f} | Positions: {len([p for p in portfolio_data if p.get('value_base', 0) > 0])}")
+                else:
+                    st.info("Add positions to build your portfolio.")
             
             st.divider()
             
