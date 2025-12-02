@@ -515,7 +515,7 @@ def main():
             portfolio_data = []
             
             # Column headers
-            header_col1, header_col2, header_col3, header_col4 = st.columns([3, 1, 1, 2])
+            header_col1, header_col2, header_col3, header_col4 = st.columns([3, 1.8, 1.2, 1])
             with header_col1:
                 st.markdown("**Asset**")
             with header_col2:
@@ -528,7 +528,7 @@ def main():
             st.markdown("---")
             
             for i in range(10):
-                col1, col2, col3, col4 = st.columns([3, 1, 1, 2])
+                col1, col2, col3, col4 = st.columns([3, 1.8, 1.2, 1])
                 
                 with col1:
                     # Build selectbox options
@@ -585,15 +585,15 @@ def main():
                     # Input type selector
                     input_type = st.selectbox(
                         f"Type {i+1}",
-                        options=["Percent %", "Currency $", "Shares"],
+                        options=["%", "$", "Shares"],
                         key=f"input_type_{i}",
                         label_visibility="collapsed",
-                        help="Select input type"
+                        help="% = Percentage | $ = Currency | Shares = Number of shares"
                     )
                 
                 with col3:
                     # Value input (adapts based on type)
-                    if input_type == "Percent %":
+                    if input_type == "%":
                         value_input = st.number_input(
                             f"Value {i+1}",
                             min_value=0.0,
@@ -606,7 +606,7 @@ def main():
                         )
                         weight = value_input  # Direct percentage
                         
-                    elif input_type == "Currency $":
+                    elif input_type == "$":
                         value_input = st.number_input(
                             f"Value {i+1}",
                             min_value=0.0,
