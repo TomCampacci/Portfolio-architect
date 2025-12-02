@@ -367,6 +367,74 @@ def fetch_historical_prices(tickers, years="max"):
         period = f"{years}y"
     return fetch_prices_new(tickers, period=period)
 
+# ===================== FX RATES & CURRENCY HELPERS =====================
+
+# Currency symbols for display
+CURRENCY_SYMBOLS = {"EUR": "€", "USD": "$", "GBP": "£", "CHF": "CHF", "JPY": "¥"}
+
+@st.cache_data(ttl=300)
+def get_fx_rates(base_currency="EUR"):
+    """
+    Get FX rates relative to base currency
+    Returns dict: {'USD': 1.08, 'GBP': 0.86, ...}
+    """
+    rates = {base_currency: 1.0}
+    
+    fx_pairs = {
+        "EUR": {"USD": "EURUSD=X", "GBP": "EURGBP=X", "CHF": "EURCHF=X", "JPY": "EURJPY=X"},
+        "USD": {"EUR": "USDEUR=X", "GBP": "USDGBP=X", "CHF": "USDCHF=X", "JPY": "USDJPY=X"},
+        "GBP": {"EUR": "GBPEUR=X", "USD": "GBPUSD=X", "CHF": "GBPCHF=X", "JPY": "GBPJPY=X"},
+        "CHF": {"EUR": "CHFEUR=X", "USD": "CHFUSD=X", "GBP": "CHFGBP=X", "JPY": "CHFJPY=X"},
+        "JPY": {"EUR": "JPYEUR=X", "USD": "JPYUSD=X", "GBP": "JPYGBP=X", "CHF": "JPYCHF=X"},
+    }
+    
+    if base_currency in fx_pairs:
+        for target_currency, symbol in fx_pairs[base_currency].items():
+            try:
+                ticker = yf.Ticker(symbol)
+                hist = ticker.history(period="1d")
+                if not hist.empty:
+                    rates[target_currency] = hist['Close'].iloc[-1]
+            except:
+                # Fallback rates (approximate)
+                fallback = {"EUR": 1.0, "USD": 1.08, "GBP": 0.86, "CHF": 0.94, "JPY": 160.0}
+                if target_currency in fallback and base_currency in fallback:
+                    rates[target_currency] = fallback[target_currency] / fallback[base_currency]
+    
+    return rates
+
+def get_ticker_currency(ticker_symbol):
+    """
+    Determine the native currency of a ticker based on its suffix
+    """
+    ticker_upper = ticker_symbol.upper()
+    
+    # European exchanges
+    if ".PA" in ticker_upper or ".AS" in ticker_upper:  # Paris, Amsterdam
+        return "EUR"
+    elif ".DE" in ticker_upper:  # Frankfurt/XETRA
+        return "EUR"
+    elif ".L" in ticker_upper:  # London
+        return "GBP"
+    elif ".SW" in ticker_upper:  # Swiss
+        return "CHF"
+    elif ".T" in ticker_upper:  # Tokyo
+        return "JPY"
+    else:
+        # US stocks (no suffix) or default
+        return "USD"
+
+def convert_to_base(amount, from_currency, base_currency, fx_rates):
+    """Convert amount from one currency to base currency"""
+    if from_currency == base_currency:
+        return amount
+    
+    if from_currency in fx_rates and fx_rates[from_currency] != 0:
+        # Rate is base_currency per from_currency
+        return amount / fx_rates[from_currency]
+    
+    return amount  # Fallback: no conversion
+
 # ===================== LIVE PREVIEW CHART (for Portfolio Setup tab) =====================
 
 def create_preview_allocation_chart(portfolio_data, capital):
@@ -433,23 +501,38 @@ def main():
     # Configuration du portfolio - À saisir avant les tabs
     st.markdown('<h2 class="section-header">CONFIGURATION</h2>', unsafe_allow_html=True)
     
-    config_col1, config_col2 = st.columns(2)
+    config_col1, config_col2, config_col3 = st.columns([1.5, 1, 1])
+    
     with config_col1:
-        capital = st.number_input(
-            "CAPITAL ($)", 
-            min_value=100.0, 
-            value=10000.0, 
-            step=1000.0,
-            format="%.0f",
-            help="Total capital to invest"
+        portfolio_mode = st.radio(
+            "MODE",
+            options=["Fixed Capital", "Progressive Build"],
+            horizontal=True,
+            help="Fixed: Define total capital upfront | Progressive: Build portfolio position by position"
         )
+    
     with config_col2:
         currency = st.selectbox(
-            "CURRENCY", 
-            options=["USD", "EUR", "GBP", "CHF", "JPY"],
+            "BASE CURRENCY", 
+            options=["EUR", "USD", "GBP", "CHF", "JPY"],
             index=0,
-            help="Portfolio currency"
+            help="Your portfolio's base currency"
         )
+    
+    with config_col3:
+        if portfolio_mode == "Fixed Capital":
+            capital = st.number_input(
+                f"CAPITAL ({currency})", 
+                min_value=100.0, 
+                value=10000.0, 
+                step=1000.0,
+                format="%.0f",
+                help="Total capital to invest"
+            )
+        else:
+            # En mode progressif, le capital sera calculé automatiquement
+            capital = 0.0
+            st.info("Auto-calculated")
     
     st.divider()
     
@@ -503,11 +586,22 @@ def main():
     
     # ==================== TAB 2: PORTFOLIO SETUP ====================
     with tab2:
+        # Mode indicator
+        currency_symbol = CURRENCY_SYMBOLS.get(currency, currency)
+        if portfolio_mode == "Fixed Capital":
+            st.markdown(f'<p style="background:#E8F2FF;padding:0.75rem 1rem;border-left:4px solid #0052CC;margin-bottom:1rem;"><b>MODE:</b> Fixed Capital | <b>BASE:</b> {currency_symbol}{capital:,.0f} {currency}</p>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<p style="background:#E3FCEF;padding:0.75rem 1rem;border-left:4px solid #00875A;margin-bottom:1rem;"><b>MODE:</b> Progressive Build | <b>BASE CURRENCY:</b> {currency}</p>', unsafe_allow_html=True)
+        
         col_input, col_preview = st.columns([1.2, 1])
         
         with col_input:
             st.markdown('<h2 class="section-header">PORTFOLIO POSITIONS</h2>', unsafe_allow_html=True)
-            st.info("Enter ticker symbols (e.g., AAPL, NVDA, MC.PA) and their weights.")
+            
+            if portfolio_mode == "Fixed Capital":
+                st.info(f"Allocate your {currency_symbol}{capital:,.0f} across different assets using percentages.")
+            else:
+                st.info(f"Add positions in their native currency. Values will be converted to {currency}.")
             
             # Utiliser les options depuis app.config
             popular_options = QUICK_SELECT_OPTIONS
@@ -707,41 +801,80 @@ def main():
         with col_preview:
             st.markdown('<h2 class="section-header">LIVE PREVIEW</h2>', unsafe_allow_html=True)
             
+            # Get FX rates for currency conversion
+            fx_rates = get_fx_rates(currency)
+            currency_symbol = CURRENCY_SYMBOLS.get(currency, currency)
+            
             if portfolio_data:
+                # Add currency info to each position
+                for p in portfolio_data:
+                    p['native_currency'] = get_ticker_currency(p['ticker'])
+                
                 # Filter only positions with weight > 0 for the chart
                 weighted_portfolio = [p for p in portfolio_data if p['weight'] > 0]
                 
+                # Calculate effective capital for progressive mode
+                if portfolio_mode == "Progressive Build" and weighted_portfolio:
+                    # In progressive mode, sum up all position values
+                    effective_capital = sum([p.get('value_base', 0) for p in weighted_portfolio])
+                    if effective_capital == 0:
+                        effective_capital = capital if capital > 0 else 10000
+                else:
+                    effective_capital = capital if capital > 0 else 10000
+                
                 if weighted_portfolio:
                     # Show pie chart
-                    fig_preview = create_preview_allocation_chart(weighted_portfolio, capital)
+                    fig_preview = create_preview_allocation_chart(weighted_portfolio, effective_capital)
                     if fig_preview:
                         st.plotly_chart(fig_preview, use_container_width=True)
                 else:
-                    st.info("💡 Enter weights to see portfolio allocation")
+                    st.info("Enter weights to see portfolio allocation")
                 
-                # Summary table - only show weighted positions
+                # Summary table with currency info
                 if weighted_portfolio:
                     st.markdown("**Portfolio Composition**")
                     summary_df = pd.DataFrame([
                         {
                             'Ticker': p['ticker'],
-                            'Name': p['name'][:25] + '...' if len(p['name']) > 25 else p['name'],
+                            'CCY': p.get('native_currency', 'USD'),
                             'Weight': f"{p['weight']:.1f}%",
-                            'Value': f"${capital * p['weight'] / 100:,.0f}"
+                            'Value': f"{currency_symbol}{effective_capital * p['weight'] / 100:,.0f}"
                         }
                         for p in weighted_portfolio
                     ])
                     st.dataframe(summary_df, use_container_width=True, hide_index=True)
                 
+                # FX Exposure breakdown
+                if weighted_portfolio:
+                    st.markdown("**FX Exposure**")
+                    fx_exposure = {}
+                    for p in weighted_portfolio:
+                        ccy = p.get('native_currency', 'USD')
+                        fx_exposure[ccy] = fx_exposure.get(ccy, 0) + p['weight']
+                    
+                    # Display FX exposure
+                    fx_cols = st.columns(len(fx_exposure))
+                    for idx, (ccy, weight) in enumerate(sorted(fx_exposure.items(), key=lambda x: -x[1])):
+                        with fx_cols[idx]:
+                            ccy_symbol = CURRENCY_SYMBOLS.get(ccy, ccy)
+                            color = "#00875A" if ccy == currency else "#0052CC"
+                            st.markdown(f'<p style="text-align:center;"><span style="color:{color};font-weight:600;">{ccy_symbol}</span><br/>{weight:.1f}%</p>', unsafe_allow_html=True)
+                
                 # Metrics
                 if weighted_portfolio:
+                    st.divider()
                     col1, col2 = st.columns(2)
                     with col1:
-                        st.metric("Total Allocated", f"${capital * total_weight / 100:,.0f}")
+                        st.metric("Total Allocated", f"{currency_symbol}{effective_capital * total_weight / 100:,.0f}")
                     with col2:
                         st.metric("Positions", f"{len(weighted_portfolio)}")
+                    
+                    # Show FX rates if there are foreign currency positions
+                    foreign_currencies = [c for c in fx_exposure.keys() if c != currency]
+                    if foreign_currencies:
+                        st.caption(f"FX Rates vs {currency}: " + " | ".join([f"{c}: {fx_rates.get(c, 1.0):.4f}" for c in foreign_currencies]))
             else:
-                st.info("👈 Add tickers with weights > 0 to see the live preview!")
+                st.info("Add tickers with weights > 0 to see the live preview!")
                 
                 # Show example portfolio
                 st.markdown("**Example Portfolio:**")
