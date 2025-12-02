@@ -515,7 +515,7 @@ def main():
             portfolio_data = []
             
             # Column headers
-            header_col1, header_col2, header_col3, header_col4 = st.columns([3, 1.8, 1.2, 1])
+            header_col1, header_col2, header_col3, header_col4 = st.columns([3.5, 1.5, 1.5, 0.5])
             with header_col1:
                 st.markdown("**Asset**")
             with header_col2:
@@ -528,7 +528,7 @@ def main():
             st.markdown("---")
             
             for i in range(10):
-                col1, col2, col3, col4 = st.columns([3, 1.8, 1.2, 1])
+                col1, col2, col3, col4 = st.columns([3.5, 1.5, 1.5, 0.5])
                 
                 with col1:
                     # Build selectbox options
@@ -649,19 +649,13 @@ def main():
                             weight = 0.0
                 
                 with col4:
-                    # Validation status
+                    # Validation status (simple checkmark only)
                     if ticker:
                         ticker_info = validate_and_get_ticker_info(ticker)
                         if ticker_info and ticker_info.get('valid'):
-                            name = ticker_info.get('name', '')[:18]
-                            st.success(f"✓ {name}")
+                            st.markdown('<p style="color: #00875A; font-size: 1.5rem; margin: 0;">✓</p>', unsafe_allow_html=True)
                             
-                            # Show conversion info
-                            if weight > 0:
-                                amount = capital * weight / 100
-                                st.caption(f"${amount:,.0f} ({weight:.1f}%)")
-                            
-                            # Add to portfolio data (even if weight = 0, for live preview)
+                            # Add to portfolio data
                             portfolio_data.append({
                                 'ticker': ticker,
                                 'weight': weight,
@@ -669,9 +663,9 @@ def main():
                                 'exchange': ticker_info.get('exchange', '')
                             })
                         else:
-                            st.error("✗ Invalid ticker")
+                            st.markdown('<p style="color: #DE350B; font-size: 1.5rem; margin: 0;">✗</p>', unsafe_allow_html=True)
                     else:
-                        st.caption("—")
+                        st.markdown('<p style="color: #6A6D78; font-size: 1.2rem; margin: 0;">—</p>', unsafe_allow_html=True)
                 
                 # Small spacer between rows
                 if i < 9:  # Don't add after last row
