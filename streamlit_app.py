@@ -26,7 +26,12 @@ from app.data_fetcher import (
     search_tickers as search_tickers_new,
     fetch_historical_prices as fetch_prices_new,
     get_current_price,
-    fetch_market_data
+    fetch_market_data,
+    fetch_market_news,
+    fetch_ohlc_data,
+    fetch_sparkline_data,
+    fetch_sector_performance,
+    fetch_regional_markets
 )
 from app.calculations import (
     compute_portfolio_metrics,
@@ -435,6 +440,152 @@ def convert_to_base(amount, from_currency, base_currency, fx_rates):
     
     return amount  # Fallback: no conversion
 
+# ===================== SPARKLINE CHARTS =====================
+
+def create_sparkline(data, color='#0052CC', height=50, width=150):
+    """Create a mini sparkline chart"""
+    if data is None or 'prices' not in data:
+        return None
+    
+    prices = data['prices']
+    trend_color = '#00875A' if data['trend'] == 'up' else '#DE350B' if data['trend'] == 'down' else '#6A6D78'
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        y=prices,
+        mode='lines',
+        line=dict(color=trend_color, width=1.5),
+        fill='tozeroy',
+        fillcolor=f'rgba({int(trend_color[1:3], 16)}, {int(trend_color[3:5], 16)}, {int(trend_color[5:7], 16)}, 0.1)',
+        showlegend=False,
+        hoverinfo='skip'
+    ))
+    
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=0, b=0),
+        height=height,
+        width=width,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False)
+    )
+    
+    return fig
+
+# ===================== CANDLESTICK CHARTS =====================
+
+def create_candlestick_chart(ohlc_data, symbol, show_volume=True):
+    """Create a professional candlestick chart with volume"""
+    if ohlc_data is None or ohlc_data.empty:
+        return None
+    
+    # Create subplots with volume
+    if show_volume:
+        fig = make_subplots(
+            rows=2, cols=1,
+            shared_xaxes=True,
+            vertical_spacing=0.03,
+            row_heights=[0.7, 0.3]
+        )
+    else:
+        fig = go.Figure()
+    
+    # Candlestick trace
+    candlestick = go.Candlestick(
+        x=ohlc_data.index,
+        open=ohlc_data['Open'],
+        high=ohlc_data['High'],
+        low=ohlc_data['Low'],
+        close=ohlc_data['Close'],
+        name='Price',
+        increasing=dict(line=dict(color='#00875A'), fillcolor='#00875A'),
+        decreasing=dict(line=dict(color='#DE350B'), fillcolor='#DE350B')
+    )
+    
+    if show_volume:
+        fig.add_trace(candlestick, row=1, col=1)
+        
+        # Volume bars
+        colors = ['#00875A' if close >= open else '#DE350B' 
+                  for close, open in zip(ohlc_data['Close'], ohlc_data['Open'])]
+        
+        fig.add_trace(go.Bar(
+            x=ohlc_data.index,
+            y=ohlc_data['Volume'],
+            name='Volume',
+            marker=dict(color=colors, opacity=0.5),
+            showlegend=False
+        ), row=2, col=1)
+        
+        fig.update_yaxes(title_text="Price", row=1, col=1)
+        fig.update_yaxes(title_text="Volume", row=2, col=1)
+    else:
+        fig.add_trace(candlestick)
+    
+    fig.update_layout(
+        title=f'{symbol} - Candlestick Chart',
+        template='plotly_white',
+        paper_bgcolor='#FFFFFF',
+        plot_bgcolor='#F5F7FA',
+        font=dict(color='#131722'),
+        height=500,
+        xaxis_rangeslider_visible=False,
+        showlegend=False,
+        hovermode='x unified'
+    )
+    
+    fig.update_xaxes(
+        gridcolor='#E0E3EB',
+        showgrid=True
+    )
+    fig.update_yaxes(
+        gridcolor='#E0E3EB',
+        showgrid=True
+    )
+    
+    return fig
+
+# ===================== SECTOR HEATMAP =====================
+
+def create_sector_heatmap(sector_data):
+    """Create a sector performance heatmap"""
+    if not sector_data:
+        return None
+    
+    sectors = list(sector_data.keys())
+    changes_1d = [sector_data[s]['change_1d'] for s in sectors]
+    changes_5d = [sector_data[s]['change_5d'] for s in sectors]
+    changes_1m = [sector_data[s]['change_1m'] for s in sectors]
+    
+    fig = go.Figure(data=go.Heatmap(
+        z=[changes_1d, changes_5d, changes_1m],
+        x=sectors,
+        y=['1 Day', '5 Days', '1 Month'],
+        colorscale='RdYlGn',
+        zmid=0,
+        text=[[f'{v:.1f}%' for v in changes_1d],
+              [f'{v:.1f}%' for v in changes_5d],
+              [f'{v:.1f}%' for v in changes_1m]],
+        texttemplate='%{text}',
+        textfont=dict(size=10, color='#131722'),
+        hovertemplate='%{x}<br>%{y}: %{z:.2f}%<extra></extra>',
+        colorbar=dict(title='Change %')
+    ))
+    
+    fig.update_layout(
+        title='Sector Performance Heatmap',
+        template='plotly_white',
+        paper_bgcolor='#FFFFFF',
+        plot_bgcolor='#F5F7FA',
+        font=dict(color='#131722'),
+        height=300,
+        xaxis=dict(tickangle=45)
+    )
+    
+    return fig
+
 # ===================== LIVE PREVIEW CHART (for Portfolio Setup tab) =====================
 
 def create_preview_allocation_chart(portfolio_data, capital):
@@ -551,20 +702,44 @@ def main():
         with st.spinner("Fetching market data..."):
             market_data = fetch_market_data()
         
-        st.divider()
+        # ========== MAJOR INDICES WITH SPARKLINES ==========
+        st.markdown('<div class="chart-category">MAJOR INDICES</div>', unsafe_allow_html=True)
         
-        st.subheader("MAJOR INDICES")
         if market_data.get('indexes'):
-            cols = st.columns(3)
-            for i, (name, data) in enumerate(market_data.get('indexes', {}).items()):
-                with cols[i % 3]:
-                    st.metric(label=name, value=f"{data['price']:,.2f}", delta=f"{data['change']:+.2f}%")
+            # Create columns for indices with sparklines
+            indices_list = list(market_data.get('indexes', {}).items())
+            
+            for i in range(0, len(indices_list), 3):
+                cols = st.columns(3)
+                for j, col in enumerate(cols):
+                    if i + j < len(indices_list):
+                        name, data = indices_list[i + j]
+                        with col:
+                            # Get sparkline data
+                            symbol_map = {'S&P 500': '^GSPC', 'Nasdaq': '^IXIC', 'Dow Jones': '^DJI', 
+                                         'DAX': '^GDAXI', 'CAC 40': '^FCHI', 'FTSE 100': '^FTSE'}
+                            symbol = symbol_map.get(name, '^GSPC')
+                            
+                            # Metric with delta
+                            delta_color = "normal" if data['change'] >= 0 else "inverse"
+                            st.metric(label=name, value=f"{data['price']:,.2f}", 
+                                     delta=f"{data['change']:+.2f}%")
+                            
+                            # Mini sparkline
+                            spark_data = fetch_sparkline_data(symbol, days=30)
+                            if spark_data:
+                                spark_fig = create_sparkline(spark_data, height=40)
+                                if spark_fig:
+                                    st.plotly_chart(spark_fig, use_container_width=True, 
+                                                   config={'displayModeBar': False})
         else:
             st.warning("No index data available at the moment.")
         
         st.divider()
         
-        st.subheader("FOREX RATES")
+        # ========== FOREX RATES ==========
+        st.markdown('<div class="chart-category">FOREX RATES</div>', unsafe_allow_html=True)
+        
         if market_data.get('forex'):
             cols = st.columns(4)
             for i, (name, data) in enumerate(market_data.get('forex', {}).items()):
@@ -575,7 +750,9 @@ def main():
         
         st.divider()
         
-        st.subheader("COMMODITIES")
+        # ========== COMMODITIES ==========
+        st.markdown('<div class="chart-category">COMMODITIES</div>', unsafe_allow_html=True)
+        
         if market_data.get('commodities'):
             cols = st.columns(3)
             for i, (name, data) in enumerate(market_data.get('commodities', {}).items()):
@@ -583,6 +760,134 @@ def main():
                     st.metric(label=name, value=f"${data['price']:,.2f}", delta=f"{data['change']:+.2f}%")
         else:
             st.warning("No commodity data available at the moment.")
+        
+        st.divider()
+        
+        # ========== SECTOR PERFORMANCE HEATMAP ==========
+        st.markdown('<div class="chart-category">SECTOR PERFORMANCE</div>', unsafe_allow_html=True)
+        
+        with st.spinner("Loading sector data..."):
+            sector_data = fetch_sector_performance()
+        
+        if sector_data:
+            # Display heatmap
+            heatmap_fig = create_sector_heatmap(sector_data)
+            if heatmap_fig:
+                st.plotly_chart(heatmap_fig, use_container_width=True)
+            
+            # Also show as expandable table
+            with st.expander("📊 View Sector Details"):
+                sector_df = pd.DataFrame([
+                    {
+                        'Sector': sector,
+                        'ETF': data['symbol'],
+                        'Price': f"${data['price']:.2f}",
+                        '1 Day': f"{data['change_1d']:+.2f}%",
+                        '5 Days': f"{data['change_5d']:+.2f}%",
+                        '1 Month': f"{data['change_1m']:+.2f}%"
+                    }
+                    for sector, data in sector_data.items()
+                ])
+                st.dataframe(sector_df, use_container_width=True, hide_index=True)
+        else:
+            st.warning("Sector data unavailable at the moment.")
+        
+        st.divider()
+        
+        # ========== CANDLESTICK CHART ==========
+        st.markdown('<div class="chart-category">CANDLESTICK CHART</div>', unsafe_allow_html=True)
+        
+        candle_col1, candle_col2, candle_col3 = st.columns([2, 1, 1])
+        
+        with candle_col1:
+            candle_symbol = st.selectbox(
+                "Select Asset",
+                options=['^GSPC', '^IXIC', '^DJI', 'AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'GC=F', 'CL=F'],
+                format_func=lambda x: {
+                    '^GSPC': 'S&P 500', '^IXIC': 'NASDAQ', '^DJI': 'Dow Jones',
+                    'AAPL': 'Apple', 'MSFT': 'Microsoft', 'NVDA': 'NVIDIA',
+                    'GOOGL': 'Alphabet', 'AMZN': 'Amazon', 'GC=F': 'Gold', 'CL=F': 'Oil'
+                }.get(x, x),
+                key="candle_symbol"
+            )
+        
+        with candle_col2:
+            candle_period = st.selectbox(
+                "Period",
+                options=['1mo', '3mo', '6mo', '1y', '2y'],
+                format_func=lambda x: {'1mo': '1 Month', '3mo': '3 Months', '6mo': '6 Months', 
+                                       '1y': '1 Year', '2y': '2 Years'}.get(x, x),
+                key="candle_period"
+            )
+        
+        with candle_col3:
+            candle_interval = st.selectbox(
+                "Interval",
+                options=['1d', '1wk'],
+                format_func=lambda x: {'1d': 'Daily', '1wk': 'Weekly'}.get(x, x),
+                key="candle_interval"
+            )
+        
+        with st.spinner("Loading candlestick data..."):
+            ohlc_data = fetch_ohlc_data(candle_symbol, period=candle_period, interval=candle_interval)
+        
+        if ohlc_data is not None and not ohlc_data.empty:
+            candle_fig = create_candlestick_chart(ohlc_data, candle_symbol, show_volume=True)
+            if candle_fig:
+                st.plotly_chart(candle_fig, use_container_width=True)
+        else:
+            st.warning("Could not load candlestick data for this asset.")
+        
+        st.divider()
+        
+        # ========== REGIONAL MARKETS ==========
+        st.markdown('<div class="chart-category">REGIONAL MARKETS</div>', unsafe_allow_html=True)
+        
+        with st.spinner("Loading regional markets..."):
+            regional_data = fetch_regional_markets()
+        
+        if regional_data:
+            region_tabs = st.tabs(list(regional_data.keys()))
+            
+            for region_tab, (region, indices) in zip(region_tabs, regional_data.items()):
+                with region_tab:
+                    if indices:
+                        cols = st.columns(min(len(indices), 3))
+                        for i, (index_name, data) in enumerate(indices.items()):
+                            with cols[i % 3]:
+                                st.metric(
+                                    label=index_name,
+                                    value=f"{data['price']:,.2f}",
+                                    delta=f"{data['change']:+.2f}%"
+                                )
+                    else:
+                        st.info(f"No data available for {region}")
+        else:
+            st.warning("Regional market data unavailable.")
+        
+        st.divider()
+        
+        # ========== MARKET NEWS FEED ==========
+        st.markdown('<div class="chart-category">MARKET NEWS</div>', unsafe_allow_html=True)
+        
+        with st.spinner("Loading market news..."):
+            market_news = fetch_market_news(max_news=8)
+        
+        if market_news:
+            for news_item in market_news:
+                with st.container():
+                    st.markdown(f"""
+                    <div style="padding: 0.75rem; margin-bottom: 0.5rem; background: #F5F7FA; border-left: 3px solid #0052CC; border-radius: 0 4px 4px 0;">
+                        <a href="{news_item['link']}" target="_blank" style="color: #131722; text-decoration: none; font-weight: 500;">
+                            {news_item['title']}
+                        </a>
+                        <p style="margin: 0.25rem 0 0 0; font-size: 0.8rem; color: #6A6D78;">
+                            {news_item['publisher']} • {news_item['timestamp']}
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+        else:
+            st.info("No market news available at the moment.")
     
     # ==================== TAB 2: PORTFOLIO SETUP ====================
     with tab2:
